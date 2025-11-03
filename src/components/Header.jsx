@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Video, MessageCircle, FileText, Home, Bell, Search, Menu, X, LogOut, Shield, Users, Lock, Sun, Moon, Sparkles } from 'lucide-react';
+import { Video, MessageCircle, FileText, Home, Bell, Search, Menu, X, LogOut, Shield, Users, Lock, Sun, Moon, Sparkles, Kanban } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -61,11 +61,17 @@ const Header = () => {
       label: 'Passwords',
       color: 'from-orange-500 to-red-500'
     },
+    {
+      path: '/kanban',
+      icon: Kanban,
+      label: 'Board',
+      color: 'from-indigo-500 to-violet-500'
+    },
   ];
 
   // Add Team Management link if user is team head
   if (user?.role === 'team_head') {
-    navItems.push({ path: '/team-management', icon: Users, label: 'Team' });
+    navItems.push({ path: '/team-management', icon: Users, label: 'Team', color: 'from-teal-500 to-cyan-500' });
   }
 
   const handleLogout = () => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import FeatureCard from '../components/FeatureCard';
 import { Users, Clock, Shield, Zap, Video, MessageCircle, FileText, Lock, Sparkles } from 'lucide-react';
 
@@ -49,6 +50,8 @@ const Home = () => {
     { icon: Zap, label: "Uptime", value: "99.99%" },
   ];
 
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-aurora-50/30 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -88,7 +91,7 @@ const Home = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up animation-delay-400">
-            <button className="group relative bg-gradient-to-r from-aurora-600 to-purple-600 hover:from-aurora-700 hover:to-purple-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-aurora-500/50 overflow-hidden">
+            <button onClick={() => navigate('/pricing')} className="group relative bg-gradient-to-r from-aurora-600 to-purple-600 hover:from-aurora-700 hover:to-purple-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-aurora-500/50 overflow-hidden">
               <span className="relative z-10 flex items-center justify-center">
                 Get Started
                 <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,7 +100,7 @@ const Home = () => {
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             </button>
-            <button className="group border-2 border-aurora-300 dark:border-aurora-600 hover:border-aurora-500 dark:hover:border-aurora-400 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-aurora-700 dark:text-aurora-300 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-xl hover:shadow-2xl">
+            <button onClick={() => navigate('/pricing')} className="group border-2 border-aurora-300 dark:border-aurora-600 hover:border-aurora-500 dark:hover:border-aurora-400 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-aurora-700 dark:text-aurora-300 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-xl hover:shadow-2xl">
               <span className="flex items-center justify-center">
                 Learn More
                 <svg className="ml-2 w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +201,7 @@ const Home = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="group relative bg-white text-aurora-600 hover:text-aurora-700 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-white/20 overflow-hidden">
+            <button onClick={() => navigate('/pricing')} className="group relative bg-white text-aurora-600 hover:text-aurora-700 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-white/20 overflow-hidden">
               <span className="relative z-10 flex items-center justify-center">
                 Get Started Free
                 <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

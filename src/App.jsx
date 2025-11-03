@@ -13,6 +13,8 @@ import DocumentShare from './pages/DocumentShare';
 import Notifications from './pages/Notifications';
 import TeamManagement from './pages/TeamManagement';
 import PasswordManager from './pages/PasswordManager';
+import Kanban from './pages/Kanban';
+import Pricing from './pages/Pricing';
 import './index.css';
 
 // Public route wrapper (redirects to home if already logged in)
@@ -54,6 +56,14 @@ function AppRoutes() {
         element={
           <PublicRoute>
             <SignUp />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/pricing" 
+        element={
+          <PublicRoute>
+            <Pricing />
           </PublicRoute>
         } 
       />
@@ -125,6 +135,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <PasswordManager />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kanban"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Kanban />
             </Layout>
           </ProtectedRoute>
         }
