@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import FeatureCard from '../components/FeatureCard';
-import { Users, Clock, Shield, Zap, Video, MessageCircle, FileText, Lock, Sparkles } from 'lucide-react';
+import { Users, Clock, Shield, Zap, Video, MessageCircle, FileText, Lock } from 'lucide-react';
 
 const Home = () => {
   const features = [
@@ -53,87 +53,60 @@ const Home = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-aurora-50/30 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
-      {/* Animated Background Elements */}
+    <div className="min-h-screen bg-white dark:bg-gray-900 relative overflow-hidden">
+      {/* Subtle Background Gradients */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-aurora-300 dark:bg-aurora-800 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-purple-300 dark:bg-purple-800 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-pink-300 dark:bg-pink-800 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-aurora-100/40 dark:bg-aurora-900/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-[10%] -right-[10%] w-[40%] h-[40%] bg-purple-100/40 dark:bg-purple-900/20 rounded-full blur-3xl"></div>
       </div>
 
       {/* Hero Section */}
-      <section className="relative py-20 px-4 overflow-hidden">
+      <section className="relative py-24 px-4">
         <div className="max-w-7xl mx-auto text-center relative z-10">
           {/* Badge */}
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-aurora-100 to-purple-100 dark:from-aurora-900/30 dark:to-purple-900/30 border border-aurora-200 dark:border-aurora-800 text-aurora-700 dark:text-aurora-300 text-sm font-medium mb-8 backdrop-blur-sm shadow-lg animate-fade-in">
-            <span className="mr-2">✨</span>
-            Trusted by 10,000+ teams worldwide
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-aurora-50 dark:bg-aurora-900/30 border border-aurora-100 dark:border-aurora-800 text-aurora-600 dark:text-aurora-400 text-sm font-medium mb-8 animate-fade-in">
+            <span className="flex h-2 w-2 rounded-full bg-aurora-500 mr-2"></span>
+            Trusted by 10,000+ teams
           </div>
-          
-          {/* Main Title with Animation */}
-          <div className="mb-6 animate-fade-in-up">
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-extrabold mb-4 leading-tight">
-              <span className="block text-gray-900 dark:text-white mb-2">Welcome to</span>
-              <span className="block bg-gradient-to-r from-aurora-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient bg-size-300">
-                Aurora
+
+          {/* Main Title */}
+          <div className="mb-8 animate-fade-in-up">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight tracking-tight text-gray-900 dark:text-white">
+              The Digital Workspace for <br />
+              <span className="bg-gradient-to-r from-aurora-600 to-purple-600 bg-clip-text text-transparent">
+                Modern Teams
               </span>
             </h1>
-            <p className="text-2xl md:text-3xl font-semibold text-gray-700 dark:text-gray-300 mt-4">
-              The Digital Workspace
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+              Seamlessly collaborate with video calls, real-time chat, document sharing, and more — all in one secure platform.
             </p>
           </div>
-          
-          {/* Description */}
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed animate-fade-in-up animation-delay-200">
-            Your professional digital workspace for seamless collaboration through video calls, real-time chat, 
-            document sharing, and more — all in one secure platform.
-          </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in-up animation-delay-400">
-            <button onClick={() => navigate('/pricing')} className="group relative bg-gradient-to-r from-aurora-600 to-purple-600 hover:from-aurora-700 hover:to-purple-700 text-white px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-aurora-500/50 overflow-hidden">
-              <span className="relative z-10 flex items-center justify-center">
-                Get Started
-                <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20 animate-fade-in-up animation-delay-200">
+            <button onClick={() => navigate('/pricing')} className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+              Get Started Free
             </button>
-            <button onClick={() => navigate('/pricing')} className="group border-2 border-aurora-300 dark:border-aurora-600 hover:border-aurora-500 dark:hover:border-aurora-400 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-aurora-700 dark:text-aurora-300 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-xl hover:shadow-2xl">
-              <span className="flex items-center justify-center">
-                Learn More
-                <svg className="ml-2 w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
+            <button onClick={() => navigate('/about')} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200">
+              View Demo
             </button>
           </div>
 
-          {/* Stats with Enhanced Design */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto animate-fade-in-up animation-delay-400">
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto border-t border-gray-100 dark:border-gray-800 pt-12 animate-fade-in-up animation-delay-400">
             {stats.map((stat, index) => {
               const Icon = stat.icon;
-              const iconGradients = [
-                "from-blue-500 to-cyan-500",
-                "from-orange-500 to-amber-500",
-                "from-emerald-500 to-teal-500",
-                "from-purple-500 to-pink-500"
-              ];
-              const iconGradient = iconGradients[index % iconGradients.length];
-              
               return (
-                <div 
-                  key={index} 
-                  className="group relative text-center p-6 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-aurora-300 dark:hover:border-aurora-600 transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
-                >
-                  <div className={`w-16 h-16 bg-gradient-to-br ${iconGradient} rounded-xl shadow-lg flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 animate-float`}>
-                    <Icon size={32} className="text-white" strokeWidth={2} />
+                <div key={index} className="text-center">
+                  <div className="flex justify-center mb-3 text-aurora-600 dark:text-aurora-400">
+                    <Icon size={24} strokeWidth={1.5} />
                   </div>
-                  <div className="text-3xl font-extrabold bg-gradient-to-r from-aurora-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
                     {stat.value}
                   </div>
-                  <div className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.label}</div>
+                  <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {stat.label}
+                  </div>
                 </div>
               );
             })}
@@ -142,26 +115,18 @@ const Home = () => {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-24 px-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm">
+      <section className="relative py-24 px-4 bg-gray-50 dark:bg-gray-800/50">
         <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-20">
-            <div className="inline-block mb-4">
-              <span className="text-sm font-semibold text-aurora-600 dark:text-aurora-400 uppercase tracking-wider">
-                Features
-              </span>
-            </div>
-            <h2 className="text-5xl md:text-6xl font-extrabold mb-6">
-              <span className="block text-gray-900 dark:text-white mb-2">Everything Your</span>
-              <span className="block bg-gradient-to-r from-aurora-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Team Needs
-              </span>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Everything you need to work together
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-              Powerful features designed to enhance collaboration and boost productivity
+            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Powerful features designed to enhance collaboration and boost productivity for teams of all sizes.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <FeatureCard
                 key={index}
@@ -174,51 +139,6 @@ const Home = () => {
                 stats={feature.stats}
               />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="relative py-24 px-4 overflow-hidden">
-        {/* Animated Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-aurora-600 via-purple-600 to-pink-600 dark:from-aurora-700 dark:via-purple-700 dark:to-pink-700">
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-20"></div>
-        </div>
-        
-        <div className="max-w-4xl mx-auto text-center text-white relative z-10">
-          <div className="mb-8 animate-float">
-            <svg className="w-24 h-24 mx-auto opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </div>
-          
-          <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
-            Ready to Transform Your Team Collaboration?
-          </h2>
-          
-          <p className="text-xl md:text-2xl mb-10 opacity-90 leading-relaxed">
-            Join thousands of teams that trust <span className="font-bold">Aurora</span> for their daily collaboration needs.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button onClick={() => navigate('/pricing')} className="group relative bg-white text-aurora-600 hover:text-aurora-700 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 shadow-2xl hover:shadow-white/20 overflow-hidden">
-              <span className="relative z-10 flex items-center justify-center">
-                Get Started Free
-                <svg className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-aurora-50 to-purple-50 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
-            </button>
-            
-            <button className="group border-2 border-white/80 hover:border-white text-white hover:bg-white/10 px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:-translate-y-2 backdrop-blur-sm">
-              <span className="flex items-center justify-center">
-                Contact Sales
-                <svg className="ml-2 w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </span>
-            </button>
           </div>
         </div>
       </section>
