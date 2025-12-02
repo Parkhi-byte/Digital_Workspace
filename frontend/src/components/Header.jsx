@@ -105,12 +105,21 @@ const Header = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-aurora-500 via-aurora-600 to-purple-600 rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 transform group-hover:scale-105">
-              <Sparkles className="text-white" size={20} />
+            <div className="relative w-10 h-10 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-aurora-500 to-purple-600 rounded-xl rotate-6 opacity-20 group-hover:rotate-12 transition-transform duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-aurora-500 to-purple-600 rounded-xl opacity-90 shadow-lg group-hover:shadow-aurora-500/30 transition-all duration-300"></div>
+              <svg className="relative w-6 h-6 text-white transform group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <div>
-              <span className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+            <div className="flex flex-col">
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-aurora-800 to-gray-900 dark:from-white dark:via-aurora-200 dark:to-white tracking-tight leading-none">
                 Aurora
+              </span>
+              <span className="text-[10px] font-semibold text-aurora-600 dark:text-aurora-400 tracking-widest uppercase leading-none mt-1">
+                Workspace
               </span>
             </div>
           </Link>
