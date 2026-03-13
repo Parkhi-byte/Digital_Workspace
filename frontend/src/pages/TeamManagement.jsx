@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTeamManagement } from '../hooks/useTeamManagement/useTeamManagement';
-import { Trash2, Edit2 } from 'lucide-react';
+import { Trash2, Edit2, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TeamStats from '../components/TeamManagement/TeamStats';
 import InviteMember from '../components/TeamManagement/InviteMember';
@@ -39,6 +39,34 @@ const TeamManagement = () => {
     searchUsers,
     fetchAllUsers
   } = useTeamManagement();
+
+  if (!loading && teams.length === 1 && teams[0].id === 'default' && !isTeamOwner && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30 flex items-center justify-center p-4">
+        {/* Animated Background Elements */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-[120px] animate-blob" />
+          <div className="absolute bottom-[-10%] left-[-5%] w-[700px] h-[700px] bg-gradient-to-br from-fuchsia-500/20 to-pink-500/20 rounded-full blur-[120px] animate-blob animation-delay-2000" />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 relative z-10 text-center"
+        >
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200 dark:border-indigo-800/50 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/10">
+            <Users size={32} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">
+            No Team Found
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 font-medium mb-8">
+            You are currently not assigned to any team. Your Team Head or Admin must invite you to their workspace to view team members.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30">

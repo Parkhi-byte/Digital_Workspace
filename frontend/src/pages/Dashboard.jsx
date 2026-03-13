@@ -17,45 +17,45 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
         const headers = { 'Authorization': `Bearer ${user.token}` };
 
-        // Fetch Teams
-        const teamRes = await fetch('/api/team', { headers });
-        const teams = await teamRes.json();
-        if (!teamRes.ok) throw new Error('Failed to fetch teams');
+        let dashboardData = { teamMembers: [], activities: [], tasks: [], events: [], documents: [], teams: [] };
 
-        let dashboardData = { teamMembers: [], activities: [], tasks: [], events: [], documents: [] };
+        // Fetch Teams (safe — always returns an array even for members)
+        try {
+            const teamRes = await fetch('/api/team', { headers });
+            const teams = await teamRes.json();
+            if (teamRes.ok && Array.isArray(teams)) {
+                dashboardData.teams = teams;
 
-        if (teams.length > 0) {
-            const primaryTeam = teams[0];
-            dashboardData.teamMembers = primaryTeam.members || [];
+                if (teams.length > 0) {
+                    const primaryTeam = teams[0];
+                    dashboardData.teamMembers = primaryTeam.members || [];
 
-            // Fetch Activities
-            const activityRes = await fetch(`/api/team/activity/${primaryTeam.id}`, { headers });
-            const activityData = await activityRes.json();
-            if (activityRes.ok) {
-                dashboardData.activities = activityData;
+                    // Fetch Activities
+                    try {
+                        const activityRes = await fetch(`/api/team/activity/${primaryTeam.id}`, { headers });
+                        if (activityRes.ok) dashboardData.activities = await activityRes.json();
+                    } catch (e) { /* silently fail */ }
+                }
             }
-        }
+        } catch (e) { /* silently fail */ }
 
         // Fetch Tasks
         try {
             const taskRes = await fetch('/api/tasks', { headers });
-            if (taskRes.ok) {
-                dashboardData.tasks = await taskRes.json();
-            }
+            if (taskRes.ok) dashboardData.tasks = await taskRes.json();
         } catch (e) { /* silently fail */ }
 
         // Fetch Events
         try {
             const eventRes = await fetch('/api/events', { headers });
-            if (eventRes.ok) {
-                dashboardData.events = await eventRes.json();
-            }
+            if (eventRes.ok) dashboardData.events = await eventRes.json();
         } catch (e) { /* silently fail */ }
 
         // Fetch Documents (requires teamId)
-        if (teams.length > 0) {
+        if (dashboardData.teams.length > 0) {
             try {
-                const docRes = await fetch(`/api/documents?teamId=${teams[0].id || teams[0]._id}`, { headers });
+                const teamId = dashboardData.teams[0].id || dashboardData.teams[0]._id;
+                const docRes = await fetch(`/api/documents?teamId=${teamId}`, { headers });
                 if (docRes.ok) {
                     const docData = await docRes.json();
                     dashboardData.documents = docData.documents || [];
@@ -67,9 +67,12 @@ const Dashboard = () => {
     };
 
     const { data: dashboardData, isLoading } = useQuery({
-        queryKey: ['dashboardData'],
+        queryKey: ['dashboardData', user?._id],   // Scoped per user — prevents cache bleed between logins
         queryFn: fetchDashboardData,
-        staleTime: 60000
+        staleTime: 0,          // Always re-fetch on mount so member sees their team immediately after login
+        refetchOnMount: true,
+        enabled: !!user,       // Don't fetch if user hasn't loaded yet
+        retry: 1
     });
 
     const activities = dashboardData?.activities || [];
@@ -77,6 +80,8 @@ const Dashboard = () => {
     const tasks = dashboardData?.tasks || [];
     const events = dashboardData?.events || [];
     const documents = dashboardData?.documents || [];
+    const teams = dashboardData?.teams || [];
+    const isMemberWithNoTeam = user?.role === 'team_member' && teams.length === 0;
 
     // ─── Computed Analytics ──────────────────────────────────────────
     const analytics = useMemo(() => {
@@ -128,6 +133,37 @@ const Dashboard = () => {
 
     if (isLoading) return <DashboardSkeleton />;
 
+    if (isMemberWithNoTeam) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30 flex items-center justify-center p-4">
+                {/* Animated Background Elements */}
+                <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                    <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-[120px] animate-blob" />
+                    <div className="absolute bottom-[-10%] left-[-5%] w-[700px] h-[700px] bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-full blur-[120px] animate-blob animation-delay-2000" />
+                </div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="max-w-md w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 relative z-10 text-center"
+                >
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/40 dark:to-purple-900/40 border border-indigo-200 dark:border-indigo-800/50 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-indigo-500/10">
+                        <Users size={32} className="text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3">
+                        Welcome to Aurora, {user.name.split(' ')[0]}!
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 font-medium mb-8">
+                        It looks like you haven't been assigned to a team yet. Please wait for a Team Head or Admin to invite you to their workspace.
+                    </p>
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/30 text-sm text-indigo-800 dark:text-indigo-300 font-medium">
+                        Once invited, your dashboard will automatically update with your team's tasks, events, and activities.
+                    </div>
+                </motion.div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30">
             {/* Animated Background Elements */}
@@ -158,14 +194,16 @@ const Dashboard = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/kanban', { state: { openNewTask: true } })}
-                            className="flex items-center gap-2 px-5 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl text-sm font-bold hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg"
-                        >
-                            <Plus size={18} strokeWidth={2.5} /> New Task
-                        </motion.button>
+                        {user.role !== 'team_member' && (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate('/kanban', { state: { openNewTask: true } })}
+                                className="flex items-center gap-2 px-5 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl text-sm font-bold hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg"
+                            >
+                                <Plus size={18} strokeWidth={2.5} /> New Task
+                            </motion.button>
+                        )}
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -186,7 +224,8 @@ const Dashboard = () => {
                             sub: `${analytics.completedTasks} completed`,
                             icon: ListTodo,
                             color: 'from-blue-500 to-indigo-600',
-                            shadowColor: 'shadow-blue-500/20'
+                            shadowColor: 'shadow-blue-500/20',
+                            path: '/kanban'
                         },
                         {
                             label: 'Completion',
@@ -194,7 +233,8 @@ const Dashboard = () => {
                             sub: `${analytics.inProgressTasks} in progress`,
                             icon: Target,
                             color: 'from-emerald-500 to-teal-600',
-                            shadowColor: 'shadow-emerald-500/20'
+                            shadowColor: 'shadow-emerald-500/20',
+                            path: '/kanban'
                         },
                         {
                             label: 'Documents',
@@ -202,7 +242,8 @@ const Dashboard = () => {
                             sub: 'Files stored',
                             icon: FileText,
                             color: 'from-orange-500 to-red-500',
-                            shadowColor: 'shadow-orange-500/20'
+                            shadowColor: 'shadow-orange-500/20',
+                            path: '/document-share'
                         },
                         {
                             label: 'Team Members',
@@ -210,7 +251,8 @@ const Dashboard = () => {
                             sub: 'Active collaborators',
                             icon: Users,
                             color: 'from-purple-500 to-pink-600',
-                            shadowColor: 'shadow-purple-500/20'
+                            shadowColor: 'shadow-purple-500/20',
+                            path: '/team-management'
                         }
                     ].map((stat, i) => (
                         <motion.div
@@ -218,7 +260,10 @@ const Dashboard = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.08 }}
-                            className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-gray-200/50 dark:border-gray-700/50 shadow-lg ${stat.shadowColor} hover:shadow-xl transition-all group`}
+                            whileHover={{ y: -4 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => navigate(stat.path)}
+                            className={`cursor-pointer bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl p-5 border border-gray-200/50 dark:border-gray-700/50 shadow-lg ${stat.shadowColor} hover:shadow-xl transition-all group`}
                         >
                             <div className="flex items-center justify-between mb-3">
                                 <div className={`p-2.5 rounded-xl bg-gradient-to-br ${stat.color} text-white shadow-md group-hover:scale-110 transition-transform`}>
@@ -307,7 +352,9 @@ const Dashboard = () => {
                                     <TrendingUp size={24} className="text-indigo-500" />
                                     Recent Activity
                                 </h2>
-                                <button className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold">View All</button>
+                                <button onClick={() => navigate('/notifications')} className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold flex items-center gap-1 group">
+                                    View All <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                                </button>
                             </div>
                             {activities.length > 0 ? (
                                 <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg">

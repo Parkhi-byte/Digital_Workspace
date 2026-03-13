@@ -66,7 +66,7 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
     }, [teamMembers]);
 
     return (
-        <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-[2rem] shadow-xl overflow-hidden min-h-[600px] flex flex-col relative">
+        <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-[2rem] shadow-xl min-h-[600px] flex flex-col relative">
 
             {/* Search / Toolbar */}
             <div className="p-8 pb-4 border-b border-white/10 dark:border-gray-700/30 z-20">
@@ -171,7 +171,7 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto overflow-x-visible p-6 space-y-3 custom-scrollbar">
                 <AnimatePresence>
                     {processedMembers.length > 0 ? (
                         processedMembers.map((member, idx) => (
@@ -184,7 +184,7 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
                                 key={member._id}
                                 onMouseEnter={() => setHoveredMember(member._id)}
                                 onMouseLeave={() => setHoveredMember(null)}
-                                className="group relative bg-white/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-800 rounded-3xl p-4 md:p-5 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 hover:z-10 transition-all duration-500 overflow-hidden"
+                                className="group relative bg-white/60 dark:bg-gray-800/60 hover:bg-white dark:hover:bg-gray-800 rounded-3xl p-4 md:p-5 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-900/30 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 hover:z-10 transition-all duration-500"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                                 <div className="flex items-center gap-4 lg:grid lg:grid-cols-[1fr_180px_180px] lg:gap-6 lg:items-center">
@@ -270,7 +270,7 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
                                             </button>
 
                                             {/* Dropdown */}
-                                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-black/50 border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-50 transform origin-top-right scale-95 group-hover/menu:scale-100 overflow-hidden">
+                                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-black/50 border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-[100] transform origin-top-right scale-95 group-hover/menu:scale-100">
                                                 <div className="p-1">
                                                     <button className="w-full text-left px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center gap-2">
                                                         <User size={14} /> View Profile

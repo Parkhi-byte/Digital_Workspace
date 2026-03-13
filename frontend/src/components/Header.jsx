@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Video, MessageCircle, FileText, Home, Bell, Search, Menu, X, LogOut, Lock, Sun, Moon, Kanban, LogIn, Users, Shield, ChevronDown, Settings, Calendar } from 'lucide-react';
+import { Video, MessageCircle, FileText, Home, Bell, Menu, X, LogOut, Lock, Sun, Moon, Kanban, LogIn, Users, Shield, ChevronDown, Settings, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../hooks/useNotifications/useNotifications';
@@ -88,15 +88,9 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 group relative z-50">
-            <div className="relative w-10 h-10 flex items-center justify-center">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl rotate-6 opacity-20 group-hover:rotate-12 transition-transform duration-300"></div>
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl opacity-90 shadow-lg group-hover:shadow-indigo-500/30 transition-all duration-300"></div>
-              <svg className="relative w-6 h-6 text-white transform group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+          <Link to="/" className="flex items-center space-x-1 group relative z-50">
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <img src="/aurora-logo.svg" alt="Aurora Logo" className="relative w-10 h-10 object-contain transform group-hover:scale-110 transition-transform duration-300 dropdown-slide animate-color-glow" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-indigo-800 to-gray-900 dark:from-white dark:via-indigo-200 dark:to-white tracking-tight leading-none">
@@ -117,17 +111,21 @@ const Header = () => {
                   to={item.path}
                   className="relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 group"
                 >
+                  <div className="relative flex items-center space-x-2 z-10">
+                    <Icon size={16} className={isActive ? 'text-indigo-600 dark:text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-gray-600 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'} strokeWidth={2.5} />
+                    <span className={isActive ? 'text-indigo-600 dark:text-indigo-400 font-semibold drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}>{item.label}</span>
+                  </div>
+                  {/* Active indicator — line from centre */}
                   {isActive && (
-                    <motion.div
-                      layoutId="nav-pill"
-                      className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full shadow-md"
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    <motion.span
+                      layoutId="nav-indicator"
+                      className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      style={{ transformOrigin: 'center' }}
                     />
                   )}
-                  <div className="relative flex items-center space-x-2 z-10">
-                    <Icon size={16} className={isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'} strokeWidth={2.5} />
-                    <span className={isActive ? 'text-white' : 'text-gray-600 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}>{item.label}</span>
-                  </div>
                 </Link>
               );
             })}
@@ -137,11 +135,6 @@ const Header = () => {
           <div className="flex items-center space-x-3 md:space-x-4">
             {user ? (
               <>
-                {/* Search Trigger (Mobile/Desktop) */}
-                <button className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                  <Search size={20} />
-                </button>
-
                 {/* Notifications */}
                 <Link
                   to="/notifications"
@@ -150,7 +143,14 @@ const Header = () => {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'
                     }`}
                 >
-                  <Bell size={20} />
+                  <motion.div
+                    animate={unreadCount > 0 ? {
+                      rotate: [0, -15, 15, -10, 10, -5, 5, 0],
+                      transition: { duration: 0.6, ease: 'easeInOut', repeat: Infinity, repeatDelay: 4 }
+                    } : {}}
+                  >
+                    <Bell size={20} />
+                  </motion.div>
                   {unreadCount > 0 && (
                     <span className="absolute top-2 right-2.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full ring-2 ring-white dark:ring-gray-900 animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}

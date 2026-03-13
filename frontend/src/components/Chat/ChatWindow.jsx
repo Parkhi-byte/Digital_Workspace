@@ -41,16 +41,22 @@ const ChatWindow = ({ activeChat, messages, message, setMessage, handleTyping, h
         e.target.value = '';
     };
 
+    const isGroupChat = chatsData[activeChat]?.type === 'group';
+
     const startCall = (isVideo = true) => {
-        // Find the other user in the chat
-        if (chatsData[activeChat]?.type === 'group') {
-            toast.info("Group calls are coming soon!");
+        if (isGroupChat) {
+            toast.info('Group calls are coming soon!');
             return;
         }
-
-        const otherUser = chatsData[activeChat].users.find(u => u._id !== currentUser._id);
+        // currentUser._id (MongoDB) or currentUser.id (some JWT payloads)
+        const myId = currentUser?._id || currentUser?.id;
+        const otherUser = chatsData[activeChat]?.users?.find(
+            u => (u._id || u.id) !== myId
+        );
         if (otherUser) {
-            handleStartCall(otherUser._id, otherUser.name, isVideo);
+            handleStartCall(otherUser._id || otherUser.id, otherUser.name, isVideo);
+        } else {
+            toast.error('Could not identify the other user in this chat.');
         }
     };
 
@@ -128,17 +134,17 @@ const ChatWindow = ({ activeChat, messages, message, setMessage, handleTyping, h
                 <div className="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
                     <button
                         onClick={() => startCall(false)}
-                        className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                        className={`p-2.5 rounded-full transition-colors ${isGroupChat ? 'opacity-40 cursor-not-allowed text-gray-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                         aria-label="Start voice call"
-                        title="Start voice call"
+                        title={isGroupChat ? 'Group calls coming soon' : 'Start voice call'}
                     >
                         <Phone size={20} />
                     </button>
                     <button
                         onClick={() => startCall(true)}
-                        className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                        className={`p-2.5 rounded-full transition-colors ${isGroupChat ? 'opacity-40 cursor-not-allowed text-gray-400' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
                         aria-label="Start video call"
-                        title="Start video call"
+                        title={isGroupChat ? 'Group calls coming soon' : 'Start video call'}
                     >
                         <Video size={20} />
                     </button>

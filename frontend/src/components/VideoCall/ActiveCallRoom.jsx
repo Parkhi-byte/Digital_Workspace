@@ -1,5 +1,5 @@
 import React from 'react';
-import { Video, Copy, Check, Users, Phone, AlertCircle, X, Mic, MicOff, VideoOff, MessageSquare, WifiOff } from 'lucide-react';
+import { Video, Copy, Check, Users, Phone, AlertCircle, X, Mic, MicOff, VideoOff, MessageSquare, WifiOff, Monitor, MonitorOff } from 'lucide-react';
 import RemoteVideo from './RemoteVideo';
 import ChatPanel from './ChatPanel';
 
@@ -34,7 +34,9 @@ const ActiveCallRoom = ({
     setMessageInput,
     sendMessage,
     messagesEndRef,
-    unreadCount
+    unreadCount,
+    isScreenSharing,
+    toggleScreenShare
 }) => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30 text-gray-900 dark:text-white flex flex-col relative overflow-hidden transition-colors duration-300">
@@ -165,7 +167,7 @@ const ActiveCallRoom = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <video ref={myVideoRef} autoPlay muted playsInline className="w-full h-full object-cover mirror" />
+                                    <video ref={myVideoRef} autoPlay muted playsInline className={`w-full h-full object-cover ${!isScreenSharing ? 'mirror' : ''}`} />
                                 )}
                                 <div className="absolute bottom-4 left-4 px-4 py-2 bg-white/80 dark:bg-black/60 backdrop-blur-xl rounded-xl flex items-center gap-3 border border-gray-200/50 dark:border-white/10 shadow-lg">
                                     <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50"></div>
@@ -254,6 +256,17 @@ const ActiveCallRoom = ({
                             {isVideoOff ? <VideoOff size={24} /> : <Video size={24} />}
                         </button>
 
+                        <button
+                            onClick={toggleScreenShare}
+                            className={`p-5 rounded-2xl transition-all duration-300 shadow-lg ${isScreenSharing
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/30'
+                                : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-white'
+                                }`}
+                            title={isScreenSharing ? "Stop Sharing" : "Screen Share"}
+                        >
+                            {isScreenSharing ? <MonitorOff size={24} /> : <Monitor size={24} />}
+                        </button>
+
                         <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
 
                         <button
@@ -315,6 +328,7 @@ const ActiveCallRoom = ({
                 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.5); border-radius: 10px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.7); }
+                .mirror { transform: scaleX(-1); }
              `}</style>
         </div>
     );

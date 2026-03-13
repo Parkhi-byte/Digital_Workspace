@@ -75,24 +75,28 @@ const fetchChats = asyncHandler(async (req, res) => {
 // @route   POST /api/chat/group
 // @access  Private
 const createGroupChat = asyncHandler(async (req, res) => {
-    if (!req.body.users || !req.body.name) {
-        return res.status(400).send({ message: 'Please Fill all the fields' });
+    if (!req.body.name) {
+        return res.status(400).send({ message: 'Group name is required' });
     }
 
-    const users = JSON.parse(req.body.users);
-
-    if (users.length < 2) {
-        return res
-            .status(400)
-            .send('More than 2 users are required to form a group chat');
+    // Parse users array — may be empty for a fresh group
+    let users = [];
+    if (req.body.users) {
+        try {
+            users = JSON.parse(req.body.users);
+        } catch (_) {
+            users = [];
+        }
     }
 
-    users.push(req.user);
+    // Always include the creator
+    const creatorId = req.user._id.toString();
+    const uniqueUserIds = [...new Set([...users.map(u => u.toString ? u.toString() : u), creatorId])];
 
     try {
         const groupChat = await Conversation.create({
             chatName: req.body.name,
-            users: users,
+            users: uniqueUserIds,
             isGroupChat: true,
             groupAdmin: req.user,
         });

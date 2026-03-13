@@ -1,0 +1,26 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="aurora-gradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6366f1">
+        <animate attributeName="stop-color" values="#6366f1; #a855f7; #6366f1" dur="4s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="50%" stop-color="#a855f7">
+        <animate attributeName="stop-color" values="#a855f7; #ec4899; #a855f7" dur="4s" repeatCount="indefinite" />
+      </stop>
+      <stop offset="100%" stop-color="#ec4899">
+        <animate attributeName="stop-color" values="#ec4899; #6366f1; #ec4899" dur="4s" repeatCount="indefinite" />
+      </stop>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  
+  <g filter="url(#glow)">
+    <path d="M256 64L112 448H192L256 288L320 448H400L256 64Z" fill="url(#aurora-gradient)" stroke="white" stroke-width="8" stroke-linejoin="round" />
+    <path d="M192 352H320" stroke="white" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  
+  <path d="M256 64L112 448H192L256 288L320 448H400L256 64Z" fill="url(#aurora-gradient)" />
+</svg>

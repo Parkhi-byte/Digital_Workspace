@@ -64,7 +64,9 @@ export const setupSocket = (io) => {
                 });
             });
 
-            socket.broadcast.emit("callEnded");
+            // NOTE: Do NOT broadcast callEnded to everyone — that kills all
+            // active calls when any user disconnects. The 1-to-1 call parties
+            // handle 'callEnded' via the explicit endCall event.
         });
 
         // Video Call Room - Single unified handler
@@ -214,44 +216,70 @@ export const setupSocket = (io) => {
             io.to(to).emit("callEnded");
         });
 
-        // Chat functionality
+        // ── Chat Room Management ──────────────────────────────────────────
+        // Clients join a chat room when they open a conversation
+        socket.on("joinChat", (chatId) => {
+            if (!chatId) return;
+            socket.join(chatId);
+            console.log(`Socket ${socket.id} joined chat room: ${chatId}`);
+        });
+
+        // Clients leave the previous chat room when switching conversations
+        socket.on("leaveChat", (chatId) => {
+            if (!chatId) return;
+            socket.leave(chatId);
+            console.log(`Socket ${socket.id} left chat room: ${chatId}`);
+        });
+
+        // ── Typing indicators ────────────────────────────────────────────
         socket.on("typing", (room) => socket.in(room).emit("typing", room));
         socket.on("stopTyping", (room) => socket.in(room).emit("stopTyping", room));
 
-        socket.on("sendMessage", async ({ room, text, senderId, type }) => {
+        // ── sendMessage ──────────────────────────────────────────────────
+        // The HTTP endpoint (POST /api/chat/message) already persisted the
+        // message and returned its _id. We receive the saved message here and
+        // broadcast it to every member of the conversation so other clients
+        // get the update in real-time WITHOUT creating a second DB record.
+        socket.on("sendMessage", async ({ room, messageId, text, senderId, senderName, type }) => {
             try {
-                const newMessage = await Message.create({
-                    chat: room,
+                // Look up the conversation so we can fan-out to personal rooms too
+                const conversation = await Conversation.findById(room)
+                    .populate('users', '_id name email');
+
+                if (!conversation) {
+                    console.error(`sendMessage: conversation ${room} not found`);
+                    return;
+                }
+
+                // Build a lightweight broadcast payload (mirrors what the HTTP
+                // endpoint already returned to the sender)
+                const broadcastPayload = {
+                    _id: messageId,
+                    chat: {
+                        _id: conversation._id,
+                        chatName: conversation.chatName,
+                        isGroupChat: conversation.isGroupChat,
+                        users: conversation.users,
+                        groupAdmin: conversation.groupAdmin
+                    },
                     text,
-                    sender: senderId,
-                    type: type || 'text'
-                });
+                    sender: { _id: senderId, name: senderName },
+                    type: type || 'text',
+                    createdAt: new Date().toISOString()
+                };
 
-                const populatedMessage = await Message.findById(newMessage._id)
-                    .populate('sender', 'name email')
-                    .populate({
-                        path: 'chat',
-                        populate: {
-                            path: 'users',
-                            select: 'name email pic'
-                        }
-                    });
+                // Broadcast to everyone in the socket room (excludes sender
+                // since they already have the optimistic message)
+                socket.to(room).emit("receiveMessage", broadcastPayload);
 
-                // Update latest message in conversation
-                await Conversation.findByIdAndUpdate(room, {
-                    latestMessage: newMessage
-                });
-
-                // Emit to the room (good for general updates)
-                io.to(room).emit("receiveMessage", populatedMessage);
-
-                // Also emit to each user's personal room to ensure "New Chat" notifications work
-                populatedMessage.chat.users.forEach(user => {
-                    if (user._id.toString() === senderId.toString()) return;
-                    io.to(user._id.toString()).emit("receiveMessage", populatedMessage);
+                // Also emit to each user's personal room so they get
+                // notifications even when that conversation isn't open
+                conversation.users.forEach(u => {
+                    if (u._id.toString() === senderId.toString()) return;
+                    io.to(u._id.toString()).emit("receiveMessage", broadcastPayload);
                 });
             } catch (error) {
-                console.error("Socket Send Message Error:", error);
+                console.error("Socket sendMessage error:", error);
             }
         });
     });

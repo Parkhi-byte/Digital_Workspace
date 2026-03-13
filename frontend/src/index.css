@@ -39,7 +39,7 @@ body {
   @apply bg-transparent;
 }
 
-::webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   @apply bg-gray-300 dark:bg-gray-700 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors;
 }
 
@@ -304,19 +304,22 @@ body {
   animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
 }
 
-/* Dropdown slide animation */
-@keyframes dropdown-slide {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
+@keyframes color-glow {
+
+  0%,
+  100% {
+    filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.9));
   }
 
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  33% {
+    filter: drop-shadow(0 0 25px rgba(236, 72, 153, 0.9));
+  }
+
+  66% {
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.9));
   }
 }
 
-.dropdown-slide {
-  animation: dropdown-slide 0.2s ease-out;
+.animate-color-glow {
+  animation: color-glow 2.5s infinite ease-in-out;
 }

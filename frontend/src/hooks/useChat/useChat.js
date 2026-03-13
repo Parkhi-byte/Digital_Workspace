@@ -27,9 +27,26 @@ export const useChat = () => {
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
     const [typingTimer, setTypingTimer] = useState(null);
-    const sentMessageIdsRef = useRef(new Set());
 
-    // 1. Listen for typing events (UI specific)
+    // 1. Join/leave socket chat rooms when active chat changes
+    const prevChatRef = useRef(null);
+    useEffect(() => {
+        if (!socketRef.current || !socketConnected) return;
+
+        // Leave the previous chat room
+        if (prevChatRef.current && prevChatRef.current !== activeChat) {
+            socketRef.current.emit('leaveChat', prevChatRef.current);
+        }
+
+        // Join the new chat room
+        if (activeChat) {
+            socketRef.current.emit('joinChat', activeChat);
+        }
+
+        prevChatRef.current = activeChat;
+    }, [activeChat, socketConnected, socketRef]);
+
+    // 2. Listen for typing events (UI specific)
     useEffect(() => {
         if (!socketRef.current) return;
 
@@ -109,7 +126,7 @@ export const useChat = () => {
     }, [activeChat, user, fetchedChats]); // Removed stable setters from dependencies
 
     const handleSend = async (msgType = 'text', msgContent = message) => {
-        if ((msgContent.trim() || msgType === 'image') && user && activeChat) {
+        if ((msgContent.trim() || msgType === 'image' || msgType === 'file') && user && activeChat) {
             const tempId = Date.now();
             const tempMsg = {
                 id: tempId,
@@ -164,8 +181,10 @@ export const useChat = () => {
                 if (socketRef.current && socketConnected) {
                     socketRef.current.emit('sendMessage', {
                         room: activeChat,
+                        messageId: savedMessage._id,
                         text: msgContent,
                         senderId: user._id || user.id,
+                        senderName: user.name,
                         type: msgType
                     });
                 }

@@ -297,7 +297,7 @@ export const useKanban = () => {
     }, [user, editingTask, closeModal, selectedTeam]);
 
     return {
-        tasks, loading, isModalOpen, editingTask, showAnalytics, setShowAnalytics, searchQuery, setSearchQuery, filterPriority, setFilterPriority, formData, setFormData,
+        user, tasks, loading, isModalOpen, editingTask, showAnalytics, setShowAnalytics, searchQuery, setSearchQuery, filterPriority, setFilterPriority, formData, setFormData,
         groupedTasks, stats, priorityData, statusData, teamMembers, teams, selectedTeam, setSelectedTeam,
         onDragEnd, handleDeleteTask, openModal, closeModal, handleSaveTask
     };

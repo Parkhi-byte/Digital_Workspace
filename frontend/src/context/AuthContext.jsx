@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { logger } from '../utils/logger';
 
 const AuthContext = createContext();
@@ -14,6 +15,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     // Load user from localStorage on mount
@@ -79,6 +81,10 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('aurora_team_cache');
+    // Clear ALL React Query cache so the next user gets fresh data.
+    // Without this, a team_head's cached dashboard (with teams array) bleeds
+    // into the team_member's session and causes the "no team" screen.
+    queryClient.clear();
   };
 
   const addTeamMember = async (memberEmail) => {

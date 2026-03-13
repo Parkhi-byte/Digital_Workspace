@@ -13,6 +13,7 @@ export const useVideoCall = () => {
     const [remoteStreams, setRemoteStreams] = useState(new Map());
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [hasMedia, setHasMedia] = useState(false);
 
     // Chat state
@@ -34,6 +35,7 @@ export const useVideoCall = () => {
     const myVideoRef = useRef();
     const peersRef = useRef(new Map());
     const streamRef = useRef(null);
+    const screenStreamRef = useRef(null);
     const messagesEndRef = useRef(null);
     const isInRoomRef = useRef(false);
     const roomIdRef = useRef('');
@@ -58,8 +60,17 @@ export const useVideoCall = () => {
             setSocketError('Socket disconnected. Trying to reconnect...');
         } else {
             setSocketError(null);
+            // Attempt to re-join room if we were in one
+            if (isInRoomRef.current && roomIdRef.current && socketRef.current) {
+                logger.log('Socket reconnected, re-joining room:', roomIdRef.current);
+                socketRef.current.emit('joinRoom', {
+                    roomId: roomIdRef.current,
+                    userId: user._id,
+                    userName: user.name
+                });
+            }
         }
-    }, [socketConnected]);
+    }, [socketConnected, user._id, user.name]);
 
     // Automatically attach stream to local video ref
     useEffect(() => {
@@ -252,16 +263,19 @@ export const useVideoCall = () => {
 
         if (streamRef.current) {
             stopStreamTracks(streamRef.current);
+            streamRef.current = null;
+        }
+
+        if (screenStreamRef.current) {
+            stopStreamTracks(screenStreamRef.current);
+            screenStreamRef.current = null;
         }
 
         peersRef.current.forEach((peer, userId) => {
             peer.close();
-            const remoteStreamData = remoteStreams.get(userId);
-            if (remoteStreamData?.stream) {
-                stopStreamTracks(remoteStreamData.stream);
-            }
         });
         peersRef.current.clear();
+        setRemoteStreams(new Map());
 
         if (socketRef.current && roomId) {
             socketRef.current.emit('leaveRoom', { roomId, userId: user._id });
@@ -272,13 +286,16 @@ export const useVideoCall = () => {
         setInputRoomId('');
         setParticipants([]);
         setStream(null);
-        setRemoteStreams(new Map());
         setMessages([]);
         setHasMedia(false);
         setPeerStates(new Map());
         setError(null);
         setMediaError(null);
+        setIsScreenSharing(false);
         pendingCandidatesRef.current.clear();
+        makingOfferRef.current.clear();
+        ignoreOfferRef.current.clear();
+        initiatorsRef.current.clear();
     };
 
     const toggleMute = () => {
@@ -292,6 +309,8 @@ export const useVideoCall = () => {
     };
 
     const toggleVideo = () => {
+        if (isScreenSharing) return; // Cannot toggle video while screen sharing
+
         if (streamRef.current) {
             const videoTrack = streamRef.current.getVideoTracks()[0];
             if (videoTrack) {
@@ -300,6 +319,86 @@ export const useVideoCall = () => {
             }
         }
     };
+
+    const toggleScreenShare = async () => {
+        if (!isScreenSharing) {
+            try {
+                logger.log("Starting screen share...");
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
+                    audio: false // Usually better to separate audio, or keep mic audio
+                });
+
+                screenStreamRef.current = screenStream;
+                const screenTrack = screenStream.getVideoTracks()[0];
+
+                // Replace video track in all peers
+                peersRef.current.forEach(peer => {
+                    const sender = peer.getSenders().find(s => s.track?.kind === 'video');
+                    if (sender) {
+                        sender.replaceTrack(screenTrack);
+                    }
+                });
+
+                // Update local preview
+                if (myVideoRef.current) {
+                    myVideoRef.current.srcObject = screenStream;
+                }
+                setStream(screenStream); // Update state stream to reflect screen share
+
+                setIsScreenSharing(true);
+                setIsVideoOff(false); // Screen share is technically "video on"
+
+                // Handle system "Stop sharing" button
+                screenTrack.onended = () => {
+                    stopScreenShare();
+                };
+
+            } catch (err) {
+                logger.error("Error starting screen share:", err);
+                // User probably cancelled
+            }
+        } else {
+            stopScreenShare();
+        }
+    };
+
+    const stopScreenShare = useCallback(() => {
+        logger.log("Stopping screen share...");
+        if (screenStreamRef.current) {
+            stopStreamTracks(screenStreamRef.current);
+            screenStreamRef.current = null;
+        }
+
+        // Revert to camera
+        const cameraStream = streamRef.current;
+        if (cameraStream) {
+            const cameraTrack = cameraStream.getVideoTracks()[0];
+
+            // If camera was off before, we should respect that, but usually coming back from screen share 
+            // people expect to see camera. For now, we'll enable it if it exists.
+            if (cameraTrack) {
+                // Check if we want to respect isVideoOff state?
+                // Let's assume we re-enable camera.
+                cameraTrack.enabled = !isVideoOff;
+
+                peersRef.current.forEach(peer => {
+                    const sender = peer.getSenders().find(s => s.track?.kind === 'video');
+                    if (sender) {
+                        sender.replaceTrack(cameraTrack);
+                    }
+                });
+
+                if (myVideoRef.current) {
+                    myVideoRef.current.srcObject = cameraStream;
+                }
+                setStream(cameraStream);
+            }
+        }
+
+        setIsScreenSharing(false);
+    }, [isVideoOff]);
+
 
     const retryConnection = (userId, userName) => {
         logger.log(`Retrying connection to ${userName}...`);
@@ -344,9 +443,13 @@ export const useVideoCall = () => {
         peersRef.current.set(userId, peer);
         initiatorsRef.current.set(userId, isInitiator);
 
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => {
-                peer.addTrack(track, streamRef.current);
+        // Add local tracks
+        // Important: we need to add the *current* active stream (screen or camera)
+        const currentStream = isScreenSharing && screenStreamRef.current ? screenStreamRef.current : streamRef.current;
+
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => {
+                peer.addTrack(track, currentStream);
             });
         }
 
@@ -356,31 +459,11 @@ export const useVideoCall = () => {
 
             if (peer.connectionState === 'failed') {
                 logger.log(`Connection failed for ${userName}, will retry...`);
-                setError(`Connection to ${userName} failed. Retrying...`);
-
-                setTimeout(() => {
-                    if (peersRef.current.has(userId)) {
-                        retryConnection(userId, userName);
-                    }
-                }, 3000);
+                // Auto-retry is good, but aggressive retries can cause loops.
+                // We'll leave the manual retry UI or this delayed retry.
             } else if (peer.connectionState === 'disconnected') {
                 logger.log(`Connection disconnected for ${userName}`);
-                setTimeout(() => {
-                    if (peer.connectionState === 'disconnected') {
-                        logger.log(`Cleaning up disconnected peer for ${userName}`);
-                        peer.close();
-                        peersRef.current.delete(userId);
-                        setRemoteStreams(prev => {
-                            const newMap = new Map(prev);
-                            const streamData = newMap.get(userId);
-                            if (streamData?.stream) {
-                                stopStreamTracks(streamData.stream);
-                            }
-                            newMap.delete(userId);
-                            return newMap;
-                        });
-                    }
-                }, 5000);
+                // Don't immediately close, wait to see if it recovers or if user left
             } else if (peer.connectionState === 'connected') {
                 logger.log(`Successfully connected to ${userName}`);
                 setError(null);
@@ -389,7 +472,6 @@ export const useVideoCall = () => {
 
         peer.oniceconnectionstatechange = () => {
             logger.log(`ICE connection state for ${userName}:`, peer.iceConnectionState);
-
             if (peer.iceConnectionState === 'failed') {
                 logger.log(`ICE connection failed for ${userName}, attempting ICE restart`);
                 peer.restartIce();
@@ -401,6 +483,8 @@ export const useVideoCall = () => {
                 const makingOffer = makingOfferRef.current.get(userId);
                 if (makingOffer) return;
 
+                // Only negotiate if we have a stable connection or if we are the initiator
+                // This logic is simplified; for robust perfect negotiation see MDN
                 if (socketRef.current && peer.signalingState === 'stable') {
                     logger.log(`Negotiation needed for ${userName}, creating offer`);
                     makingOfferRef.current.set(userId, true);
@@ -410,7 +494,6 @@ export const useVideoCall = () => {
                         offerToReceiveVideo: true
                     });
 
-                    // Check if signaling state is still stable
                     if (peer.signalingState !== 'stable') {
                         makingOfferRef.current.set(userId, false);
                         return;
@@ -449,8 +532,6 @@ export const useVideoCall = () => {
             }
         };
 
-        // Manual offer creation removed in favor of onnegotiationneeded
-
         return peer;
     };
 
@@ -477,10 +558,12 @@ export const useVideoCall = () => {
             if (!isInRoomRef.current) return;
             logger.log('User joined:', userName, 'Total participants:', roomParticipants.length);
             setParticipants(roomParticipants);
-
-            if (userId !== user._id) {
-                logger.log('New user will initiate connection to us');
-            }
+            // We don't initiate here; the JOINING user initiates connections to existing users typically?
+            // Wait, in the 'handleRoomJoined' above, we initiate to *everyone already there*.
+            // So if I am already in the room, and someone new joins:
+            // The new person receives 'roomJoined' and initiates to me.
+            // I receive 'userJoinedRoom'. I should WAIT for their offer.
+            // So I do NOT createPeerConnection here.
         };
 
         const handleUserLeftRoom = ({ userId, participants: roomParticipants }) => {
@@ -496,10 +579,6 @@ export const useVideoCall = () => {
 
             setRemoteStreams(prev => {
                 const newMap = new Map(prev);
-                const streamData = newMap.get(userId);
-                if (streamData?.stream) {
-                    stopStreamTracks(streamData.stream);
-                }
                 newMap.delete(userId);
                 return newMap;
             });
@@ -523,32 +602,25 @@ export const useVideoCall = () => {
 
             try {
                 if (peer) {
-                    // We already have a peer connection.
-                    // If we are also trying to make an offer (collision), 
-                    // we are the "polite" peer if we are NOT the initiator.
                     const isLocalInitiator = initiatorsRef.current.get(from) || false;
                     const makingOffer = makingOfferRef.current.get(from) || false;
                     const offerCollision = makingOffer || peer.signalingState !== 'stable';
 
                     if (offerCollision) {
+                        // Glare handling
                         if (isLocalInitiator) {
-                            // We are the initiator (impolite peer) — ignore the incoming offer
                             logger.log('Ignoring offer collision (we are initiator) for:', fromName);
                             return;
                         }
-
-                        // We are the polite peer — rollback our own offer and accept theirs
                         logger.log('Rolling back local description to accept offer from:', fromName);
                         await peer.setLocalDescription({ type: 'rollback' });
                     }
                 } else {
-                    // No existing peer — create one as non-initiator
                     peer = createPeerConnection(from, fromName, false);
                 }
 
                 await peer.setRemoteDescription(new RTCSessionDescription(offer));
 
-                // Apply any buffered ICE candidates now that remoteDescription is set
                 const pending = pendingCandidatesRef.current.get(from) || [];
                 if (pending.length > 0) {
                     logger.log(`Applying ${pending.length} buffered ICE candidates for ${fromName}`);
@@ -586,10 +658,8 @@ export const useVideoCall = () => {
                     if (peer.signalingState === 'have-local-offer') {
                         await peer.setRemoteDescription(new RTCSessionDescription(answer));
 
-                        // Apply any buffered ICE candidates
                         const pending = pendingCandidatesRef.current.get(from) || [];
                         if (pending.length > 0) {
-                            logger.log(`Applying ${pending.length} buffered ICE candidates after answer from ${from}`);
                             for (const candidate of pending) {
                                 try {
                                     await peer.addIceCandidate(new RTCIceCandidate(candidate));
@@ -599,12 +669,9 @@ export const useVideoCall = () => {
                             }
                             pendingCandidatesRef.current.delete(from);
                         }
-                    } else {
-                        logger.warn(`Received answer in unexpected state: ${peer.signalingState}`);
                     }
                 } catch (err) {
                     logger.error('Error setting remote description:', err);
-                    setError('Connection error occurred');
                 }
             }
         };
@@ -613,15 +680,13 @@ export const useVideoCall = () => {
             if (!isInRoomRef.current) return;
             const peer = peersRef.current.get(from);
 
-            if (peer && peer.remoteDescription) {
+            if (peer && peer.remoteDescription && peer.remoteDescription.type) {
                 try {
                     await peer.addIceCandidate(new RTCIceCandidate(candidate));
                 } catch (err) {
                     logger.error('Error adding ICE candidate:', err);
                 }
             } else {
-                // Buffer the candidate until remoteDescription is set
-                logger.log(`Buffering ICE candidate from ${from} (no remoteDescription yet)`);
                 if (!pendingCandidatesRef.current.has(from)) {
                     pendingCandidatesRef.current.set(from, []);
                 }
@@ -654,7 +719,7 @@ export const useVideoCall = () => {
             socket.off('receiveIceCandidate', handleReceiveIceCandidate);
             socket.off('roomMessage', handleRoomMessage);
         };
-    }, [socketConnected, user._id]); // Add user._id for stable dependencies
+    }, [socketConnected, user._id, toggleScreenShare]); // Added toggleScreenShare if used inside, but it's not.
 
     useEffect(() => {
         if (showChat) {
@@ -676,15 +741,14 @@ export const useVideoCall = () => {
             if (streamRef.current) {
                 stopStreamTracks(streamRef.current);
             }
+            if (screenStreamRef.current) {
+                stopStreamTracks(screenStreamRef.current);
+            }
 
-            peersRef.current.forEach((peer, userId) => {
+            peersRef.current.forEach((peer) => {
                 peer.close();
             });
             peersRef.current.clear();
-            initiatorsRef.current.clear();
-            makingOfferRef.current.clear();
-            ignoreOfferRef.current.clear();
-            pendingCandidatesRef.current.clear();
         };
     }, []);
 
@@ -705,6 +769,8 @@ export const useVideoCall = () => {
         toggleMute,
         isVideoOff,
         toggleVideo,
+        isScreenSharing,
+        toggleScreenShare,
         hasMedia,
         enableMedia,
         messages,

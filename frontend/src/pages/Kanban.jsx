@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Kanban = () => {
   const {
-    loading, isModalOpen, editingTask, showAnalytics, setShowAnalytics, searchQuery, setSearchQuery, filterPriority, setFilterPriority, formData, setFormData,
+    user, loading, isModalOpen, editingTask, showAnalytics, setShowAnalytics, searchQuery, setSearchQuery, filterPriority, setFilterPriority, formData, setFormData,
     groupedTasks, stats, priorityData, statusData, teamMembers, teams, selectedTeam, setSelectedTeam,
     onDragEnd, handleDeleteTask, openModal, closeModal, handleSaveTask
   } = useKanban();
@@ -97,21 +97,23 @@ const Kanban = () => {
             <button
               onClick={() => setShowAnalytics(!showAnalytics)}
               className={`p-2 rounded-lg transition-colors ${showAnalytics
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
             >
               <PieChartIcon size={18} />
             </button>
 
             {/* New Task Button */}
-            <button
-              onClick={openModal}
-              className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-            >
-              <Plus size={18} />
-              <span>New Task</span>
-            </button>
+            {user?.role !== 'team_member' && (
+              <button
+                onClick={openModal}
+                className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
+              >
+                <Plus size={18} />
+                <span>New Task</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -200,12 +202,14 @@ const Kanban = () => {
       </div>
 
       {/* Floating Add Button */}
-      <button
-        onClick={() => openModal()}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center z-40 transition-colors"
-      >
-        <Plus size={24} />
-      </button>
+      {user?.role !== 'team_member' && (
+        <button
+          onClick={() => openModal()}
+          className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl flex items-center justify-center z-40 transition-colors"
+        >
+          <Plus size={24} />
+        </button>
+      )}
 
       {/* Task Modal */}
       <TaskModal

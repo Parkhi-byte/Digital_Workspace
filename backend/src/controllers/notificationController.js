@@ -5,7 +5,7 @@ import Notification from '../models/Notification.js';
 // @route   GET /api/notifications
 // @access  Private
 export const getNotifications = asyncHandler(async (req, res) => {
-    const notifications = await Notification.find({ recipient: req.user.id })
+    const notifications = await Notification.find({ recipient: req.user._id })
         .populate('sender', 'name email pic')
         .sort({ createdAt: -1 });
     res.json(notifications);
@@ -22,7 +22,7 @@ export const markAsRead = asyncHandler(async (req, res) => {
         throw new Error('Notification not found');
     }
 
-    if (notification.recipient.toString() !== req.user.id) {
+    if (notification.recipient.toString() !== req.user._id.toString()) {
         res.status(401);
         throw new Error('Not authorized');
     }
@@ -38,7 +38,7 @@ export const markAsRead = asyncHandler(async (req, res) => {
 // @access  Private
 export const markAllAsRead = asyncHandler(async (req, res) => {
     await Notification.updateMany(
-        { recipient: req.user.id, read: false },
+        { recipient: req.user._id, read: false },
         { read: true }
     );
     res.json({ message: 'All notifications marked as read' });
@@ -55,7 +55,7 @@ export const deleteNotification = asyncHandler(async (req, res) => {
         throw new Error('Notification not found');
     }
 
-    if (notification.recipient.toString() !== req.user.id) {
+    if (notification.recipient.toString() !== req.user._id.toString()) {
         res.status(401);
         throw new Error('Not authorized');
     }

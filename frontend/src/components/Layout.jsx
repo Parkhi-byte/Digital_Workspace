@@ -53,11 +53,11 @@ const Layout = ({ children }) => {
           <div className="w-full px-4 py-10">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-aurora-500 via-aurora-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
-                    <Sparkles className="text-white" size={16} />
+                <div className="flex items-center space-x-1 mb-3">
+                  <div className="relative w-8 h-8 flex items-center justify-center">
+                    <img src="/aurora-logo.svg" alt="Aurora Logo" className="w-7 h-7 object-contain animate-color-glow" />
                   </div>
-                  <span className="text-lg font-bold bg-gradient-to-r from-aurora-600 to-purple-600 bg-clip-text text-transparent">Aurora</span>
+                  <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-indigo-800 to-gray-900 dark:from-white dark:via-indigo-200 dark:to-white tracking-tight leading-none">Aurora</span>
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">The Digital Workspace: chat, calls, docs, and tasks unified.</p>
 
@@ -147,7 +147,7 @@ const Layout = ({ children }) => {
               </div>
             </div>
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 flex flex-col md:flex-row items-center justify-between gap-3">
-              <div>© 2024 Aurora. All rights reserved.</div>
+              <div>© {new Date().getFullYear()} Aurora. All rights reserved.</div>
               <div className="flex items-center gap-6">
                 <a href="#" className="flex items-center space-x-1.5 hover:text-aurora-600 dark:hover:text-aurora-400 transition-colors">
                   <FileQuestion size={14} />

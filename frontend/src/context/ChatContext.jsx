@@ -161,11 +161,15 @@ export const ChatProvider = ({ children }) => {
             reconnectionAttempts: 5
         });
 
-        socketRef.current.emit("setup", user);
-
-        socketRef.current.on('connected', () => {
-            logger.log('Socket connected');
+        socketRef.current.on('connect', () => {
+            logger.log('Socket connected/reconnected');
+            // Identify ourselves to the server so we join our personal room
+            socketRef.current.emit('setup', user);
             setSocketConnected(true);
+            // Re-join the active chat room after reconnect
+            if (activeChatRef.current) {
+                socketRef.current.emit('joinChat', activeChatRef.current);
+            }
         });
 
         socketRef.current.on('disconnect', () => {
@@ -180,14 +184,17 @@ export const ChatProvider = ({ children }) => {
         });
 
         socketRef.current.on('receiveMessage', (newMessage) => {
-            // ... existing receiveMessage logic
-            if (sentMessageIdsRef.current.has(newMessage._id)) return;
+            // Deduplicate: message may arrive via the socket room channel
+            // AND via the personal-room fan-out simultaneously.
+            const msgId = newMessage._id?.toString();
+            if (msgId && processedMessageIdsRef.current.has(msgId)) return;
+            if (msgId) processedMessageIdsRef.current.add(msgId);
 
-            const isOwnMessage = newMessage.sender._id === user?._id || newMessage.sender === user?._id;
-            if (isOwnMessage) {
-                sentMessageIdsRef.current.add(newMessage._id);
-                return;
-            }
+            // Ignore messages sent by the current user (they already have
+            // the optimistic message in state)
+            const senderId = newMessage.sender?._id?.toString() || newMessage.sender?.toString();
+            const isOwnMessage = senderId && senderId === (user?._id?.toString() || user?.id?.toString());
+            if (isOwnMessage) return;
 
             const formattedMsg = {
                 id: newMessage._id,
@@ -250,6 +257,12 @@ export const ChatProvider = ({ children }) => {
             }
         });
 
+        // Listen for incoming 1-on-1 calls
+        socketRef.current.on('callUser', ({ from, name, signal, isVideo }) => {
+            logger.log('Receiving call from', name, 'Video:', isVideo);
+            setCall({ isReceivingCall: true, from, name, signal, isVideo });
+        });
+
         return () => {
             socketRef.current?.disconnect();
         };
@@ -262,9 +275,11 @@ export const ChatProvider = ({ children }) => {
     const [isCalling, setIsCalling] = useState(false);
 
     const startCall = (userId, userName, isVideo = true) => {
+        // Reset any leftover state from a previous call first
+        setCallAccepted(false);
+        setCallEnded(false);
         setIsCalling(true);
         setCall({ isReceivingCall: false, userToCall: userId, name: userName, isVideo });
-        // The VideoCall component will handle the actual signaling creation when it mounts and sees 'isCalling'
     };
 
     const answerCall = () => {
@@ -272,11 +287,13 @@ export const ChatProvider = ({ children }) => {
     };
 
     const endCall = () => {
+        // Socket signaling (endCall emit) is handled by useDirectCall.leaveCall
+        // before it calls this function. Here we just clean up context state.
         setCall({});
         setCallAccepted(false);
-        setCallEnded(true); // Trigger cleanup
+        setCallEnded(true);
         setIsCalling(false);
-        setTimeout(() => setCallEnded(false), 1000); // Reset after cleanup
+        setTimeout(() => setCallEnded(false), 500);
     };
 
 
@@ -294,24 +311,6 @@ export const ChatProvider = ({ children }) => {
             }
         }
     }, [call.isReceivingCall, callAccepted]);
-
-    // Socket listeners for Calls
-    useEffect(() => {
-        if (!socketRef.current) return;
-
-        socketRef.current.on('callUser', ({ from, name, signal, isVideo }) => {
-            logger.log("Receiving call from", name, "Video:", isVideo);
-            setCall({ isReceivingCall: true, from, name, signal, isVideo });
-        });
-
-        // We also need to listen for callEnded from remote here? 
-        // Or let the VideoCall component handle it? 
-        // The VideoCall component handles 'callEnded' event to close itself.
-
-        return () => {
-            socketRef.current?.off('callUser');
-        };
-    }, [socketConnected]);
 
     const value = {
         activeChat,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, User, Shield, ArrowRight, CheckCircle, Mail, Lock } from 'lucide-react';
+import { User, Shield, ArrowRight, Mail, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const SignUp = () => {
@@ -48,7 +48,7 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-950/30 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-[120px] animate-blob" />
@@ -61,17 +61,38 @@ const SignUp = () => {
         transition={{ duration: 0.3 }}
         className="max-w-xl w-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl border border-gray-200/50 dark:border-gray-700/50 relative z-10"
       >
-        <div className="text-center mb-8">
+        {/* ── Aurora Brand Header ── */}
+        <div className="text-center mb-5">
+          {/* Logo + Wordmark */}
           <motion.div
-            whileHover={{ rotate: 10, scale: 1.1 }}
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white mb-6 shadow-lg shadow-indigo-500/30"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="inline-flex items-center space-x-1 mb-4"
           >
-            <UserPlus size={28} strokeWidth={2.5} />
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <img
+                src="/aurora-logo.svg"
+                alt="Aurora Logo"
+                className="relative w-10 h-10 object-contain animate-color-glow"
+              />
+            </div>
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 via-indigo-800 to-gray-900 dark:from-white dark:via-indigo-200 dark:to-white tracking-tight leading-none">
+              Aurora
+            </span>
           </motion.div>
-          <h2 className="text-3xl font-black bg-gradient-to-r from-gray-900 via-indigo-900 to-purple-900 dark:from-white dark:via-indigo-200 dark:to-purple-200 bg-clip-text text-transparent transform -skew-x-2">
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
+            <span className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest px-1">or</span>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-200 dark:via-gray-700 to-transparent" />
+          </div>
+
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white">
             Create your account
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+          <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400 font-medium">
             Start collaborating with your team today.
           </p>
         </div>
@@ -86,7 +107,7 @@ const SignUp = () => {
           </motion.div>
         )}
 
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Role Toggle */}
           <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100/80 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm">
             <button

@@ -72,9 +72,13 @@ const sendMessage = asyncHandler(async (req, res) => {
         type: type || 'text'
     });
 
-    // Populate sender info
+    // Populate sender info + chat users for socket fan-out
     const populatedMessage = await Message.findById(newMessage._id)
-        .populate('sender', 'name email');
+        .populate('sender', 'name email')
+        .populate({
+            path: 'chat',
+            populate: { path: 'users', select: '-password' }
+        });
 
     // Update latest message in conversation
     await Conversation.findByIdAndUpdate(chatId, {
