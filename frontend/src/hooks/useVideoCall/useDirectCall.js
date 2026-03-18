@@ -81,6 +81,7 @@ export const useDirectCall = ({
                 video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
             };
             const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
             if (!isMountedRef.current) {
                 mediaStream.getTracks().forEach(t => t.stop());
                 return null;
@@ -94,7 +95,7 @@ export const useDirectCall = ({
         } catch (err) {
             logger.error('getMedia error:', err);
             const msg =
-                err.name === 'NotAllowedError'
+                err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
                     ? 'Please allow microphone and camera access in your browser.'
                     : err.name === 'NotReadableError'
                         ? 'Microphone or camera is in use by another application.'

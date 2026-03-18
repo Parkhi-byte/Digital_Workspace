@@ -146,33 +146,19 @@ const ActiveCall = ({
                 {/* Main content */}
                 <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
 
-                    {/* Remote video (full area) */}
-                    {isVideoCall && callAccepted && remoteStream && (
+                    {/* Remote Media Element (handles both video and audio) */}
+                    {callAccepted && remoteStream && (
                         <video
                             ref={(node) => {
                                 userVideoRef.current = node;
-                                if (node && remoteStream && node.srcObject !== remoteStream) {
+                                if (node && node.srcObject !== remoteStream) {
                                     node.srcObject = remoteStream;
+                                    node.play().catch(e => console.error("Autoplay failed:", e));
                                 }
                             }}
                             autoPlay
                             playsInline
-                            className="absolute inset-0 w-full h-full object-cover"
-                        />
-                    )}
-
-                    {/* Audio element (hidden) for audio calls */}
-                    {!isVideoCall && (
-                        <audio 
-                            ref={(node) => {
-                                userVideoRef.current = node;
-                                if (node && remoteStream && node.srcObject !== remoteStream) {
-                                    node.srcObject = remoteStream;
-                                }
-                            }}
-                            autoPlay 
-                            playsInline 
-                            className="hidden" 
+                            className={isVideoCall ? "absolute inset-0 w-full h-full object-cover" : "opacity-0 absolute w-px h-px pointer-events-none"}
                         />
                     )}
 
