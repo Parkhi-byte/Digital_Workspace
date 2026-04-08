@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications/useNotifications';
 import NotificationFilters from '../components/Notifications/NotificationFilters';
@@ -11,6 +11,7 @@ import { CardListSkeleton } from '../components/SkeletonLoader';
 const Notifications = () => {
   const { filter: paramFilter } = useParams();
   const navigate = useNavigate();
+  const [showFilters, setShowFilters] = useState(false);
 
   const {
     filter,
@@ -20,10 +21,10 @@ const Notifications = () => {
     deleteNotification,
     filteredNotifications,
     unreadCount,
-    notifications
+    notifications,
+    isLoading
   } = useNotifications();
 
-  const isLoading = notifications === undefined;
 
   useEffect(() => {
     if (paramFilter && ['all', 'unread', 'tasks', 'events', 'messages'].includes(paramFilter)) {
@@ -68,20 +69,34 @@ const Notifications = () => {
               <span>Mark all read</span>
             </button>
             <div className="h-6 w-px bg-gray-200 dark:bg-gray-700"></div>
-            <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors">
-              <Filter size={20} />
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`p-2 rounded-xl transition-all ${
+                showFilters 
+                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+              }`}
+              title="Filter Notifications"
+            >
+              <Filter size={20} fill={showFilters ? "currentColor" : "none"} />
             </button>
           </div>
         </motion.div>
 
         {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-        >
-          <NotificationFilters filter={filter} setFilter={handleFilterChange} unreadCount={unreadCount} />
-        </motion.div>
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+              animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <NotificationFilters filter={filter} setFilter={handleFilterChange} unreadCount={unreadCount} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Notifications List */}
         {isLoading ? (

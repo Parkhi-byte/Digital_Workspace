@@ -40,6 +40,7 @@ import Team from './models/Team.js';
 import { createNotifications } from './utils/notificationService.js';
 
 const app = express();
+app.set('trust proxy', true); // Trust the proxy (Render/Vercel) to get correct user IPs
 const server = http.createServer(app);
 
 // Initialize Socket.io with robust CORS

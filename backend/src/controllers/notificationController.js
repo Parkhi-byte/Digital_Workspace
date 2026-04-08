@@ -13,30 +13,59 @@ export const getUnreadCount = asyncHandler(async (req, res) => {
 // @route   GET /api/notifications
 // @access  Private
 export const getNotifications = asyncHandler(async (req, res) => {
-    const notifications = await Notification.find({ recipient: req.user._id })
-        .populate('sender', 'name email pic')
-        .sort({ createdAt: -1 });
-    res.json(notifications);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    // Filtering
+    const query = { recipient: req.user._id };
+    if (req.query.read !== undefined) {
+        query.read = req.query.read === 'true';
+    }
+    if (req.query.type) {
+        query.type = req.query.type;
+    }
+
+    const [notifications, total] = await Promise.all([
+        Notification.find(query)
+            .populate('sender', 'name email pic')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit),
+        Notification.countDocuments(query)
+    ]);
+
+    res.json({
+        notifications,
+        page,
+        pages: Math.ceil(total / limit),
+        total
+    });
 });
 
 // @desc    Mark notification as read
 // @route   PUT /api/notifications/:id/read
 // @access  Private
 export const markAsRead = asyncHandler(async (req, res) => {
-    const notification = await Notification.findById(req.params.id);
+    const notification = await Notification.findOneAndUpdate(
+        { _id: req.params.id, recipient: req.user._id },
+        { read: true },
+        { returnDocument: 'after' }
+    );
 
     if (!notification) {
         res.status(404);
-        throw new Error('Notification not found');
+        throw new Error('Notification not found or unauthorized');
     }
 
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-        res.status(401);
-        throw new Error('Not authorized');
+    // Sync status across other tabs/devices
+    const io = req.app.get('socketio');
+    if (io) {
+        io.to(req.user._id.toString()).emit('notificationStatusSync', {
+            id: req.params.id,
+            read: true
+        });
     }
-
-    notification.read = true;
-    await notification.save();
 
     res.json(notification);
 });
@@ -49,6 +78,15 @@ export const markAllAsRead = asyncHandler(async (req, res) => {
         { recipient: req.user._id, read: false },
         { read: true }
     );
+
+    // Sync status across other tabs/devices
+    const io = req.app.get('socketio');
+    if (io) {
+        io.to(req.user._id.toString()).emit('notificationStatusSync', {
+            allRead: true
+        });
+    }
+
     res.json({ message: 'All notifications marked as read' });
 });
 
@@ -56,18 +94,32 @@ export const markAllAsRead = asyncHandler(async (req, res) => {
 // @route   DELETE /api/notifications/:id
 // @access  Private
 export const deleteNotification = asyncHandler(async (req, res) => {
-    const notification = await Notification.findById(req.params.id);
+    const notification = await Notification.findOne({ 
+        _id: req.params.id, 
+        recipient: req.user._id 
+    });
 
     if (!notification) {
         res.status(404);
-        throw new Error('Notification not found');
-    }
-
-    if (notification.recipient.toString() !== req.user._id.toString()) {
-        res.status(401);
-        throw new Error('Not authorized');
+        throw new Error('Notification not found or unauthorized');
     }
 
     await notification.deleteOne();
     res.json({ id: req.params.id });
+});
+
+// @desc    Clear all notifications
+// @route   DELETE /api/notifications/clear-all
+// @access  Private
+export const clearAll = asyncHandler(async (req, res) => {
+    await Notification.deleteMany({ recipient: req.user._id });
+    res.json({ message: 'All notifications cleared' });
+});
+
+// @desc    Clear read notifications
+// @route   DELETE /api/notifications/clear-read
+// @access  Private
+export const clearRead = asyncHandler(async (req, res) => {
+    await Notification.deleteMany({ recipient: req.user._id, read: true });
+    res.json({ message: 'Read notifications cleared' });
 });

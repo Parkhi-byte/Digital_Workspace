@@ -427,6 +427,23 @@ const updateTeamDetails = asyncHandler(async (req, res) => {
 
     await team.save();
 
+    // Notify Team about metadata changes
+    const io = req.app.get('socketio');
+    const recipientIds = [...team.members, team.owner]
+        .filter(id => id != null)
+        .map(id => id.toString())
+        .filter(id => id !== req.user._id.toString());
+
+    if (recipientIds.length > 0) {
+        await createNotifications(recipientIds, {
+            title: 'Team Profile Updated',
+            description: `${req.user.name} updated the details for team "${team.name}"`,
+            type: 'team_update',
+            sender: req.user._id,
+            link: '/team'
+        }, io);
+    }
+
     res.json({
         teamName: team.name,
         teamDescription: team.description,
@@ -477,6 +494,22 @@ const deleteTeam = asyncHandler(async (req, res) => {
     if (!team) {
         res.status(404);
         throw new Error('Team not found or you are not the owner');
+    }
+
+    // Notify team before deletion
+    const io = req.app.get('socketio');
+    const recipientIds = [...team.members] // owner already knows
+        .filter(id => id != null)
+        .map(id => id.toString());
+
+    if (recipientIds.length > 0) {
+        await createNotifications(recipientIds, {
+            title: 'Team Deleted',
+            description: `The team "${team.name}" has been deleted by the owner`,
+            type: 'team_update',
+            sender: req.user._id,
+            link: '/dashboard'
+        }, io);
     }
 
     await team.deleteOne();

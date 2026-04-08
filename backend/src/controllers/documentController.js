@@ -241,6 +241,26 @@ const deleteFolder = asyncHandler(async (req, res) => {
         // 3. Delete the folder itself
         await Folder.findByIdAndDelete(folderId);
     };
+    
+    // Notify Team before recursive deletion
+    const io = req.app.get('socketio');
+    const team = await Team.findById(folder.team); // Need team for member IDs
+    if (team) {
+        const recipientIds = [...team.members, team.owner]
+            .filter(id => id != null)
+            .map(id => id.toString())
+            .filter(id => id !== req.user.id.toString());
+
+        if (recipientIds.length > 0) {
+            await createNotifications(recipientIds, {
+                title: 'Folder Removed',
+                description: `${req.user.name} deleted the folder "${folder.name}" and its contents`,
+                type: 'document_shared',
+                sender: req.user.id,
+                link: '/document-share'
+            }, io);
+        }
+    }
 
     await deleteFolderRecursive(folder._id);
 
@@ -319,6 +339,26 @@ const deleteDocument = asyncHandler(async (req, res) => {
     }
 
     await document.deleteOne();
+
+    // Notify Team
+    const team = await Team.findById(document.team);
+    if (team) {
+        const io = req.app.get('socketio');
+        const recipientIds = [...team.members, team.owner]
+            .filter(id => id != null)
+            .map(id => id.toString())
+            .filter(id => id !== req.user.id.toString());
+
+        if (recipientIds.length > 0) {
+            await createNotifications(recipientIds, {
+                title: 'Document Removed',
+                description: `${req.user.name} deleted "${document.name}"`,
+                type: 'document_shared',
+                sender: req.user.id,
+                link: '/document-share'
+            }, io);
+        }
+    }
 
     res.json({ id: req.params.id });
 });

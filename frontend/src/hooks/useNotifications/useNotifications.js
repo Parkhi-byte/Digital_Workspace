@@ -28,7 +28,9 @@ const typeColors = {
 
 export const useNotifications = () => {
     const [filter, setFilter] = useState('all');
-    const [dbNotifications, setDbNotifications] = useState([]);
+    const [dbNotifications, setDbNotifications] = useState(null);
+    const [pages, setPages] = useState(1);
+    const [total, setTotal] = useState(0);
     const { chatsData, setActiveChat, socketRef, user } = useChatContext();
     const navigate = useNavigate();
 
@@ -38,12 +40,25 @@ export const useNotifications = () => {
         if (!token) return;
 
         try {
-            const res = await fetch('/api/notifications', {
+            // Mapping frontend filters to backend query params
+            let queryParams = '?limit=30'; // Default limit
+            if (filter === 'unread') queryParams += '&read=false';
+            if (filter === 'tasks') queryParams += '&type=task_assigned&type=task_updated';
+            if (filter === 'events') queryParams += '&type=event_created&type=event_reminder';
+            if (filter === 'messages') queryParams += '&type=message';
+            
+            const res = await fetch(`/api/notifications${queryParams}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
+            
             if (res.ok) {
-                setDbNotifications(data.map(n => ({
+                // Backend now returns { notifications, total, pages, page }
+                const items = data.notifications || [];
+                setPages(data.pages || 1);
+                setTotal(data.total || 0);
+                
+                setDbNotifications(items.map(n => ({
                     ...n,
                     id: n._id,
                     icon: typeIcons[n.type] || Bell,
@@ -59,7 +74,7 @@ export const useNotifications = () => {
         } catch (err) {
             console.error("Failed to fetch notifications", err);
         }
-    }, [user]);
+    }, [user, filter]); // Added filter as dependency to trigger re-fetch
 
     useEffect(() => {
         fetchNotifications();
@@ -185,19 +200,24 @@ export const useNotifications = () => {
     };
 
     const filteredNotifications = useMemo(() => {
-        switch (filter) {
-            case 'unread':
-                return notifications.filter(n => !n.read);
-            case 'tasks':
-                return notifications.filter(n => n.type === 'task_assigned' || n.type === 'task_updated');
-            case 'events':
-                return notifications.filter(n => n.type === 'event_created' || n.type === 'event_reminder');
-            case 'messages':
-                return notifications.filter(n => n.type === 'message');
-            default:
-                return notifications;
+        // Chat notifications are still client-side based on filter
+        let filteredChats = chatNotifications;
+        
+        if (filter === 'unread') {
+            filteredChats = chatNotifications.filter(n => !n.read);
+        } else if (filter === 'tasks' || filter === 'events') {
+            filteredChats = []; // Chats obviously aren't tasks or events
+        } else if (filter === 'messages') {
+            filteredChats = chatNotifications;
         }
-    }, [notifications, filter]);
+
+        // dbNotifications are already filtered by the server!
+        return [...filteredChats, ...dbNotifications].sort((a, b) => {
+            const timeA = a.fullTime || a.createdAt || new Date();
+            const timeB = b.fullTime || b.createdAt || new Date();
+            return new Date(timeB) - new Date(timeA);
+        });
+    }, [dbNotifications, chatNotifications, filter]);
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -209,6 +229,9 @@ export const useNotifications = () => {
         markAllAsRead,
         deleteNotification,
         filteredNotifications,
-        unreadCount
+        unreadCount,
+        pages,
+        total,
+        isLoading: dbNotifications === null // Using null for initial state if desired
     };
 };

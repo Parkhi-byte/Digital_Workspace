@@ -108,15 +108,22 @@ const setTask = asyncHandler(async (req, res) => {
 
     const populatedTask = await Task.findById(task._id).populate('assignedTo', 'name email');
 
-    // Notify assigned user
-    if (task.assignedTo) {
-        await createNotification(task.assignedTo, {
+    // Notify team members (even if not explicitly assigned)
+    const io = req.app.get('socketio');
+    const teamMembers = [...team.members, team.owner]
+        .filter(id => id.toString() !== req.user.id)
+        .map(id => id.toString());
+
+    if (teamMembers.length > 0) {
+        await createNotifications(teamMembers, {
             sender: req.user.id,
-            title: 'New Task Assigned',
-            description: `You have been assigned to task: "${task.title}"`,
+            title: task.assignedTo ? 'New Task Assigned' : 'New Task Created',
+            description: task.assignedTo 
+                ? `${req.user.name} assigned a task to you: "${task.title}"`
+                : `${req.user.name} created a new task: "${task.title}"`,
             type: 'task_assigned',
             link: '/kanban'
-        }, req.app.get('socketio'));
+        }, io);
     }
 
     res.status(200).json(populatedTask);
@@ -325,15 +332,31 @@ const deleteTask = asyncHandler(async (req, res) => {
         throw new Error('Only Team Heads can delete tasks');
     }
 
-    // Fix: Issue #4 - Audit Deletion
     const team = await Team.findById(task.team);
     if (team) {
+        // Activity Audit
         await Activity.create({
             team: team._id,
             teamOwner: team.owner,
             text: `${req.user.name} deleted task "${task.title}"`,
             type: 'task_delete'
         });
+
+        // Notify Team
+        const io = req.app.get('socketio');
+        const teamMembers = [...team.members, team.owner]
+            .filter(id => id.toString() !== req.user.id)
+            .map(id => id.toString());
+
+        if (teamMembers.length > 0) {
+            await createNotifications(teamMembers, {
+                sender: req.user.id,
+                title: 'Task Removed',
+                description: `${req.user.name} deleted task "${task.title}"`,
+                type: 'task_updated',
+                link: '/kanban'
+            }, io);
+        }
     }
 
     await task.deleteOne();

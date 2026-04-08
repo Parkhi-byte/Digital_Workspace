@@ -1,5 +1,6 @@
 import Message from '../models/Message.js';
 import Conversation from '../models/Conversation.js';
+import { createNotification } from '../utils/notificationService.js';
 
 export const setupSocket = (io) => {
     // Track online users: userId -> socketId
@@ -7,6 +8,9 @@ export const setupSocket = (io) => {
 
     // Video Call Room Management - MUST be outside connection handler
     const videoRooms = new Map(); // roomId -> Map of { userId, userName, socketId }
+
+    // Track active call attempts to detect "Missed Calls"
+    const ringingCalls = new Map(); // socketId (caller) -> { recipientId, callerId, callerName, isVideo }
 
     io.on('connection', (socket) => {
         console.log(`Socket Connected: ${socket.id}`);
@@ -38,6 +42,20 @@ export const setupSocket = (io) => {
             if (disconnectedUserId) {
                 onlineUsers.delete(disconnectedUserId);
                 io.emit("onlineUsers", Array.from(onlineUsers.keys()));
+            }
+
+            // Clean up any active ringing call tracking for this socket
+            if (ringingCalls.has(socket.id)) {
+                ringingCalls.delete(socket.id);
+            }
+            
+            // Also clean up if the disconnected user was a recipient
+            if (disconnectedUserId) {
+                for (let [callerSocketId, callInfo] of ringingCalls.entries()) {
+                    if (callInfo.recipientId === disconnectedUserId) {
+                        ringingCalls.delete(callerSocketId);
+                    }
+                }
             }
 
             // Clean up video rooms when user disconnects
@@ -198,11 +216,34 @@ export const setupSocket = (io) => {
         // WebRTC Signaling (legacy 1-to-1 calls)
         socket.on("callUser", ({ userToCall, signalData, from, name, isVideo }) => {
             console.log(`Call initiated from ${from} to ${userToCall} (Video: ${isVideo})`);
+            
+            // Track this call attempt
+            ringingCalls.set(socket.id, {
+                recipientId: userToCall,
+                callerId: from,
+                callerName: name,
+                isVideo: !!isVideo
+            });
+            
             io.to(userToCall).emit("callUser", { signal: signalData, from, name, isVideo });
         });
 
         socket.on("answerCall", (data) => {
             console.log(`Call answered by ${socket.id} to ${data.to}`);
+            
+            // Call was answered - remove from ringing tracking
+            // We need to find the caller's socket id. Since 'to' is the caller's ID (room),
+            // we can look through ringingCalls for where recipientId == socket._id.
+            // But 'data.to' is usually the signal recipient.
+            
+            // Better: When answering, the person who was being called notifies the caller.
+            // We can search ringingCalls for any entry where recipientId is the current user.
+            for (let [callerSocketId, callInfo] of ringingCalls.entries()) {
+                if (callInfo.recipientId === data.to || callInfo.recipientId === socket.id) {
+                     ringingCalls.delete(callerSocketId);
+                }
+            }
+
             io.to(data.to).emit("callAccepted", data.signal);
         });
 
@@ -211,8 +252,26 @@ export const setupSocket = (io) => {
             io.to(to).emit("ice-candidate", candidate);
         });
 
-        socket.on("endCall", ({ to }) => {
+        socket.on("endCall", async ({ to }) => {
             console.log(`Call ended by ${socket.id} for ${to}`);
+            
+            // Check if this was a missed call (caller hung up before answer)
+            const callInfo = ringingCalls.get(socket.id);
+            if (callInfo && callInfo.recipientId === to) {
+                try {
+                    await createNotification(to, {
+                        sender: callInfo.callerId,
+                        title: 'Missed Call',
+                        description: `You missed a ${callInfo.isVideo ? 'video' : 'voice'} call from ${callInfo.callerName}`,
+                        type: 'message', // Using message type or custom one?
+                        link: '/chat'
+                    }, io);
+                } catch (error) {
+                    console.error("Error creating missed call notification:", error);
+                }
+                ringingCalls.delete(socket.id);
+            }
+
             io.to(to).emit("callEnded");
         });
 

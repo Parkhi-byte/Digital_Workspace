@@ -107,6 +107,27 @@ const updateEvent = asyncHandler(async (req, res) => {
 
     const updatedEvent = await event.save();
 
+    // Notify team if event is linked to a team
+    if (event.team) {
+        const team = await Team.findById(event.team);
+        if (team) {
+            const io = req.app.get('socketio');
+            const recipientIds = [...team.members, team.owner]
+                .filter(id => id.toString() !== req.user.id.toString())
+                .map(id => id.toString());
+
+            if (recipientIds.length > 0) {
+                await createNotifications(recipientIds, {
+                    sender: req.user.id,
+                    title: 'Event Updated',
+                    description: `${req.user.name} updated the event "${event.title}"`,
+                    type: 'team_update', // Or event_created?
+                    link: '/calendar'
+                }, io);
+            }
+        }
+    }
+
     res.json(updatedEvent);
 });
 
@@ -134,6 +155,27 @@ const deleteEvent = asyncHandler(async (req, res) => {
     }
 
     await event.deleteOne();
+
+    // Notify team if event was linked to a team
+    if (event.team) {
+        const team = await Team.findById(event.team);
+        if (team) {
+            const io = req.app.get('socketio');
+            const recipientIds = [...team.members, team.owner]
+                .filter(id => id.toString() !== req.user.id.toString())
+                .map(id => id.toString());
+
+            if (recipientIds.length > 0) {
+                await createNotifications(recipientIds, {
+                    sender: req.user.id,
+                    title: 'Event Cancelled',
+                    description: `${req.user.name} cancelled the event "${event.title}"`,
+                    type: 'team_update',
+                    link: '/calendar'
+                }, io);
+            }
+        }
+    }
 
     res.json({ id: req.params.id });
 });
