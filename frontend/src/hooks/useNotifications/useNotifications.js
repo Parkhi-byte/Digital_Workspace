@@ -28,7 +28,8 @@ const typeColors = {
 
 export const useNotifications = () => {
     const [filter, setFilter] = useState('all');
-    const [dbNotifications, setDbNotifications] = useState(null);
+    const [dbNotifications, setDbNotifications] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [pages, setPages] = useState(1);
     const [total, setTotal] = useState(0);
     const { chatsData, setActiveChat, socketRef, user } = useChatContext();
@@ -40,6 +41,7 @@ export const useNotifications = () => {
         if (!token) return;
 
         try {
+            setIsLoading(true);
             // Mapping frontend filters to backend query params
             let queryParams = '?limit=30'; // Default limit
             if (filter === 'unread') queryParams += '&read=false';
@@ -73,6 +75,8 @@ export const useNotifications = () => {
             }
         } catch (err) {
             console.error("Failed to fetch notifications", err);
+        } finally {
+            setIsLoading(false);
         }
     }, [user, filter]); // Added filter as dependency to trigger re-fetch
 
@@ -232,6 +236,6 @@ export const useNotifications = () => {
         unreadCount,
         pages,
         total,
-        isLoading: dbNotifications === null // Using null for initial state if desired
+        isLoading
     };
 };
