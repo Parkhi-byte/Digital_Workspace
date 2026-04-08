@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Video, MessageCircle, FileText, Home, Bell, Menu, X, LogOut, Lock, Sun, Moon, Kanban, LogIn, Users, Shield, ChevronDown, Settings, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useNotifications } from '../hooks/useNotifications/useNotifications';
+import { useChatContext } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const getInitials = (name) => {
@@ -18,7 +18,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { unreadCount } = useNotifications();
+  const { totalUnreadCount: unreadCount } = useChatContext();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);

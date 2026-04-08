@@ -23,7 +23,10 @@ export const getNotifications = asyncHandler(async (req, res) => {
         query.read = req.query.read === 'true';
     }
     if (req.query.type) {
-        query.type = req.query.type;
+        // Support both single value and array (e.g. ?type=a&type=b)
+        query.type = Array.isArray(req.query.type)
+            ? { $in: req.query.type }
+            : req.query.type;
     }
 
     const [notifications, total] = await Promise.all([

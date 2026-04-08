@@ -519,7 +519,7 @@ const ChatWindow = ({ activeChat, messages, message, setMessage, handleTyping, h
                     </button>
 
                     <button
-                        onClick={handleSend}
+                        onClick={() => handleSend()}
                         disabled={!message.trim()}
                         className={`p-3 rounded-full transition-all duration-300 shadow-lg flex items-center justify-center ${message.trim()
                             ? 'bg-gradient-to-r from-aurora-600 to-indigo-600 text-white hover:shadow-xl hover:shadow-aurora-500/30 transform hover:scale-110 active:scale-95'
