@@ -9,7 +9,9 @@ const ringtoneSound = '/sounds/ringtone.mp3';
 
 const ChatContext = createContext();
 
-const SOCKET_URL = '/';
+const SOCKET_URL = import.meta.env.PROD 
+    ? 'https://digital-workspace.onrender.com' 
+    : '/';
 
 export const ChatProvider = ({ children }) => {
     const { user } = useAuth();
