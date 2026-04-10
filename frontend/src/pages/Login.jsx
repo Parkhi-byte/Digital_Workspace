@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Shield, ArrowRight, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Shield, ArrowRight, Mail, Lock, Eye, EyeOff, Crown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {
@@ -93,7 +93,7 @@ const Login = () => {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           {/* Role Toggle */}
-          <div className="grid grid-cols-2 gap-2 p-1.5 bg-gray-100/80 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm">
+          <div className="grid grid-cols-3 gap-2 p-1.5 bg-gray-100/80 dark:bg-gray-700/50 rounded-2xl backdrop-blur-sm">
             <button
               type="button"
               onClick={() => setRole('team_member')}
@@ -103,7 +103,7 @@ const Login = () => {
                 }`}
             >
               <User size={18} />
-              <span>Member</span>
+              <span className="hidden sm:inline">Member</span>
             </button>
             <button
               type="button"
@@ -114,7 +114,18 @@ const Login = () => {
                 }`}
             >
               <Shield size={18} />
-              <span>Team Head</span>
+              <span className="hidden sm:inline">Team Head</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole('master_admin')}
+              className={`flex items-center justify-center gap-2 py-3 text-sm font-bold rounded-xl transition-all ${role === 'master_admin'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-amber-950 shadow-lg shadow-amber-500/20'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                }`}
+            >
+              <Crown size={18} />
+              <span className="hidden sm:inline">Master</span>
             </button>
           </div>
 

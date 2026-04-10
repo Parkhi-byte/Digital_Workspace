@@ -14,6 +14,7 @@ const SignUp = () => {
   const [role, setRole] = useState('team_member');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState('');
 
   const { signup } = useAuth();
   const navigate = useNavigate();
@@ -38,7 +39,11 @@ const SignUp = () => {
       const result = await signup(name, email, password, role);
 
       if (result.success) {
-        navigate('/');
+        if (result.pending) {
+          setPendingMessage(result.message);
+        } else {
+          navigate('/');
+        }
       } else {
         setError(result.error || 'Failed to create account');
       }
@@ -285,6 +290,28 @@ const SignUp = () => {
             </Link>
           </p>
         </form>
+
+        {pendingMessage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-3xl p-8 flex flex-col items-center justify-center text-center z-50 border border-gray-200 dark:border-gray-700"
+          >
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 text-amber-500 rounded-full flex items-center justify-center mb-6">
+              <Shield size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Registration Submitted</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-8 max-w-sm">
+              {pendingMessage}
+            </p>
+            <Link
+              to="/login"
+              className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/30 transition-all text-base focus:outline-none focus:ring-4 focus:ring-indigo-500/20"
+            >
+              Return to Login
+            </Link>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );

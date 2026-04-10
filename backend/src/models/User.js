@@ -17,8 +17,13 @@ const userSchema = mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['team_member', 'team_head', 'admin'],
+        enum: ['team_member', 'team_head', 'admin', 'master_admin'],
         default: 'team_member',
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'active', 'suspended'],
+        default: 'active',
     },
     teamMembers: [{
         type: mongoose.Schema.Types.ObjectId,

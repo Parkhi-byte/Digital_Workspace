@@ -3,12 +3,14 @@ import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 
 const protect = asyncHandler(async (req, res, next) => {
+    let token;
+
     if (
         req.headers.authorization &&
         req.headers.authorization.startsWith('Bearer')
     ) {
         try {
-            const token = req.headers.authorization.split(' ')[1];
+            token = req.headers.authorization.split(' ')[1];
 
             if (!process.env.JWT_SECRET) {
                 console.error('JWT_SECRET is not defined in environment variables');
@@ -25,6 +27,16 @@ const protect = asyncHandler(async (req, res, next) => {
                 throw new Error('User not found');
             }
 
+            if (req.user.status === 'suspended') {
+                res.status(401);
+                throw new Error('Not authorized, account has been suspended by the master admin');
+            }
+
+            if (req.user.status === 'pending') {
+                res.status(403);
+                throw new Error('Not authorized, account is pending approval');
+            }
+
             return next();
         } catch (error) {
             console.error('Auth Error:', error.message);
@@ -33,13 +45,14 @@ const protect = asyncHandler(async (req, res, next) => {
         }
     }
 
-    // No Authorization header present at all
-    res.status(401);
-    throw new Error('Not authorized, no token');
+    if (!token) {
+        res.status(401);
+        throw new Error('Not authorized, no token');
+    }
 });
 
 const admin = (req, res, next) => {
-    if (req.user && (req.user.role === 'team_head' || req.user.role === 'admin' || req.user.role === 'master')) {
+    if (req.user && (req.user.role === 'team_head' || req.user.role === 'admin' || req.user.role === 'master' || req.user.role === 'master_admin')) {
         next();
     } else {
         res.status(401);
@@ -47,4 +60,13 @@ const admin = (req, res, next) => {
     }
 };
 
-export { protect, admin };
+const masterAdmin = (req, res, next) => {
+    if (req.user && req.user.role === 'master_admin') {
+        next();
+    } else {
+        res.status(401);
+        throw new Error('Not authorized as a master admin');
+    }
+};
+
+export { protect, admin, masterAdmin };

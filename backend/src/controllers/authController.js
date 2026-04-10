@@ -16,7 +16,6 @@ const authUser = asyncHandler(async (req, res) => {
         if (user.role === role) {
             isValidRole = true;
         } else if (user.role === 'admin' && role === 'team_head') {
-            // Allow Admins to login as Team Heads
             isValidRole = true;
         }
 
@@ -24,6 +23,20 @@ const authUser = asyncHandler(async (req, res) => {
             res.status(401);
             throw new Error('Invalid role selected.');
         }
+
+        if (user.status === 'pending') {
+            res.status(403);
+            throw new Error('Your account is awaiting Master Admin approval. Please check back later.');
+        }
+
+        if (user.status === 'suspended') {
+            res.status(403);
+            throw new Error('Your account has been suspended. Please contact the administrator.');
+        }
+
+        // Update lastLogin
+        user.lastLogin = new Date();
+        await user.save();
 
         res.json({
             _id: user._id,
@@ -51,14 +64,29 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('User already exists');
     }
 
+    if (role === 'master_admin') {
+        res.status(400);
+        throw new Error('Cannot register as master admin');
+    }
+
     const user = await User.create({
         name,
         email,
         password,
         role: role || 'team_member',
+        // Team heads require Master Admin approval before they can log in
+        status: (role === 'team_head' || role === 'admin') ? 'pending' : 'active',
     });
 
     if (user) {
+        // Team heads get a pending response — no token yet
+        if (user.status === 'pending') {
+            return res.status(201).json({
+                pending: true,
+                message: 'Registration submitted! Your Team Head account is awaiting Master Admin approval. You will be able to log in once approved.',
+            });
+        }
+
         res.status(201).json({
             _id: user._id,
             name: user.name,

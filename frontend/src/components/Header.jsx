@@ -72,8 +72,8 @@ const Header = () => {
       { path: '/calendar', icon: Calendar, label: 'Calendar' },
       { path: '/team-management', icon: Users, label: 'Team' }
     ];
-    if (user.role === 'master') {
-      items.push({ path: '/master-dashboard', icon: Shield, label: 'Master' });
+    if (user.role === 'master_admin') {
+      items.push({ path: '/admin', icon: Shield, label: 'Admin' });
     }
     return items;
   }, [user]);

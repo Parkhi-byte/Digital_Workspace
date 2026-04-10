@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedMasterAdminRoute from './components/ProtectedMasterAdminRoute';
 import PageLoader from './components/PageLoader';
 import ErrorBoundary from './components/ErrorBoundary';
 
@@ -16,6 +17,7 @@ const Chat = React.lazy(() => import('./pages/Chat'));
 const DocumentShare = React.lazy(() => import('./pages/DocumentShare'));
 const Notifications = React.lazy(() => import('./pages/Notifications'));
 const TeamManagement = React.lazy(() => import('./pages/TeamManagement'));
+const MasterAdminDashboard = React.lazy(() => import('./pages/MasterAdminDashboard'));
 const PasswordManager = React.lazy(() => import('./pages/PasswordManager'));
 const Kanban = React.lazy(() => import('./pages/Kanban'));
 const Calendar = React.lazy(() => import('./pages/Calendar'));
@@ -147,6 +149,16 @@ function AppRoutes() {
                 <TeamManagement />
               </Layout>
             </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedMasterAdminRoute>
+              <Layout>
+                <MasterAdminDashboard />
+              </Layout>
+            </ProtectedMasterAdminRoute>
           }
         />
         <Route

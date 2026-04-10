@@ -66,6 +66,9 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
+        if (data.pending) {
+            return { success: true, pending: true, message: data.message };
+        }
         setUser(data);
         localStorage.setItem('user', JSON.stringify(data));
         return { success: true };
@@ -117,6 +120,8 @@ export const AuthProvider = ({ children }) => {
     return { success: false, error: 'Feature coming soon' };
   };
 
+  const isMasterAdmin = user?.role === 'master_admin';
+
   const value = {
     user,
     loading,
@@ -124,7 +129,8 @@ export const AuthProvider = ({ children }) => {
     signup,
     logout,
     addTeamMember,
-    removeTeamMember
+    removeTeamMember,
+    isMasterAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

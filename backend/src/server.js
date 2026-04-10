@@ -21,6 +21,7 @@ import passwordRoutes from './routes/passwordRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import adminRoutes from './routes/adminRoutes.js';
 import { apiRateLimit } from './middleware/rateLimiter.js';
 import { setupSocket } from './socket/socketHandler.js';
 
@@ -40,7 +41,7 @@ import Team from './models/Team.js';
 import { createNotifications } from './utils/notificationService.js';
 
 const app = express();
-app.set('trust proxy', true); // Trust the proxy (Render/Vercel) to get correct user IPs
+app.set('trust proxy', 1); // Trust first proxy (Render/Vercel) to get correct user IPs
 const server = http.createServer(app);
 
 // Initialize Socket.io with robust CORS
@@ -98,6 +99,7 @@ app.use('/api/passwords', passwordRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 const uploadsPath = path.join(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsPath));

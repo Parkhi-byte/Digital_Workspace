@@ -42,30 +42,28 @@ const IncomingCall = ({ callerName, isVideoCall, onAnswer, onDecline }) => (
                 </p>
             </div>
 
-            <div className="flex items-center justify-around px-10 py-8">
-                {/* Decline */}
-                <div className="flex flex-col items-center gap-2">
-                    <button
-                        onClick={onDecline}
-                        className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-white shadow-xl shadow-red-600/40 active:scale-95 transition-all"
-                        aria-label="Decline call"
-                    >
-                        <PhoneOff size={26} />
-                    </button>
-                    <span className="text-xs text-gray-400">Decline</span>
-                </div>
+            {/* Accept — centred in the card */}
+            <div className="flex flex-col items-center gap-2 py-8">
+                <button
+                    onClick={onAnswer}
+                    className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white shadow-xl shadow-green-500/40 active:scale-95 transition-all"
+                    aria-label="Accept call"
+                >
+                    {isVideoCall ? <Video size={26} /> : <Phone size={26} />}
+                </button>
+                <span className="text-xs text-gray-400">Accept</span>
+            </div>
 
-                {/* Accept */}
-                <div className="flex flex-col items-center gap-2">
-                    <button
-                        onClick={onAnswer}
-                        className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center text-white shadow-xl shadow-green-500/40 active:scale-95 transition-all"
-                        aria-label="Accept call"
-                    >
-                        {isVideoCall ? <Video size={26} /> : <Phone size={26} />}
-                    </button>
-                    <span className="text-xs text-gray-400">Accept</span>
-                </div>
+            {/* Decline — pinned to the bottom of the card */}
+            <div className="flex flex-col items-center gap-2 pb-8">
+                <button
+                    onClick={onDecline}
+                    className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-white shadow-xl shadow-red-600/40 active:scale-95 transition-all"
+                    aria-label="Decline call"
+                >
+                    <PhoneOff size={26} />
+                </button>
+                <span className="text-xs text-gray-400">Decline</span>
             </div>
         </div>
     </div>
@@ -176,26 +174,13 @@ const ActiveCall = ({
                                 {callerName?.[0]?.toUpperCase() || '?'}
                             </div>
                             <p className="text-xl sm:text-2xl font-semibold mb-1">{callerName}</p>
-                            <p className="text-gray-400 text-sm mb-8">
+                            <p className="text-gray-400 text-sm">
                                 {!callAccepted
                                     ? (connectionState === 'calling' ? 'Ringing…' : 'Initializing call…')
                                     : isVideoCall
                                         ? 'Waiting for remote video…'
                                         : 'Call in progress'}
                             </p>
-                            {/* Cancel button — visible to caller while waiting for answer */}
-                            {!callAccepted && connectionState === 'calling' && (
-                                <button
-                                    onClick={leaveCall}
-                                    className="flex flex-col items-center gap-2 group"
-                                    aria-label="Cancel call"
-                                >
-                                    <span className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center shadow-xl shadow-red-600/40 active:scale-95 transition-all">
-                                        <PhoneOff size={24} className="text-white" />
-                                    </span>
-                                    <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors">Cancel</span>
-                                </button>
-                            )}
                         </div>
                     )}
 
