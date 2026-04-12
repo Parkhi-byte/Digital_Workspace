@@ -32,22 +32,30 @@ const getAllTeamsAdmin = asyncHandler(async (req, res) => {
 
     const enrichedTeams = await Promise.all(teams.map(async (team) => {
         const teamObj = team.toObject();
+        
         const getUserStats = async (userId) => {
-            const [assigned, completed] = await Promise.all([
-                Task.countDocuments({ team: team._id, assignedTo: userId }),
-                Task.countDocuments({ team: team._id, assignedTo: userId, status: 'Done' })
-            ]);
-            return { assigned, completed };
+            if (!userId) return { assigned: 0, completed: 0 };
+            try {
+                const [assigned, completed] = await Promise.all([
+                    Task.countDocuments({ team: team._id, assignedTo: userId }),
+                    Task.countDocuments({ team: team._id, assignedTo: userId, status: 'Done' })
+                ]);
+                return { assigned, completed };
+            } catch (err) {
+                console.error(`Error fetching stats for user ${userId}:`, err);
+                return { assigned: 0, completed: 0 };
+            }
         };
 
-        if (teamObj.owner) {
+        if (teamObj.owner && teamObj.owner._id) {
             const stats = await getUserStats(teamObj.owner._id);
             teamObj.owner.tasksAssigned = stats.assigned;
             teamObj.owner.tasksCompleted = stats.completed;
         }
 
-        if (teamObj.members) {
+        if (teamObj.members && Array.isArray(teamObj.members)) {
             teamObj.members = await Promise.all(teamObj.members.map(async (member) => {
+                if (!member || !member._id) return member;
                 const stats = await getUserStats(member._id);
                 return { ...member, tasksAssigned: stats.assigned, tasksCompleted: stats.completed };
             }));
@@ -61,6 +69,7 @@ const getAllTeamsAdmin = asyncHandler(async (req, res) => {
 // @desc    Update any user's role
 // @route   PATCH /api/admin/users/:userId/role
 const updateUserRole = asyncHandler(async (req, res) => {
+    // Keep internal logic but will be unexposed from routes
     const { role } = req.body;
     const { userId } = req.params;
     const validRoles = ['team_member', 'team_head', 'admin', 'master_admin'];
@@ -89,6 +98,49 @@ const updateUserRole = asyncHandler(async (req, res) => {
     emitTeamUpdate(req.app.get('socketio'), null, 'ROLE_UPDATE', [targetUser._id]);
 
     res.json({ _id: targetUser._id, name: targetUser.name, email: targetUser.email, role: targetUser.role });
+});
+
+// @desc    Update any user's profile information
+// @route   PUT /api/admin/users/:userId
+const updateUserAdmin = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { name, email, password } = req.body;
+
+    const userToUpdate = await User.findById(userId);
+    if (!userToUpdate) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    // Check email uniqueness if it's being changed
+    if (email && email !== userToUpdate.email) {
+        const emailExists = await User.findOne({ email });
+        if (emailExists) {
+            res.status(400);
+            throw new Error('Email already in use');
+        }
+        userToUpdate.email = email;
+    }
+
+    if (name) userToUpdate.name = name;
+    if (password) userToUpdate.password = password; // Will be hashed by pre-save hook
+
+    await userToUpdate.save();
+
+    await AuditLog.create({ 
+        admin: req.user._id, 
+        action: 'USER_PROFILE_UPDATED', 
+        targetUser: userToUpdate._id, 
+        details: `Updated profile for ${userToUpdate.email}. Changes: ${[name ? 'name' : '', email ? 'email' : '', password ? 'password' : ''].filter(Boolean).join(', ')}` 
+    });
+
+    res.json({
+        _id: userToUpdate._id,
+        name: userToUpdate.name,
+        email: userToUpdate.email,
+        role: userToUpdate.role,
+        status: userToUpdate.status
+    });
 });
 
 // @desc    Delete any user
@@ -169,7 +221,37 @@ const addMemberToTeamAdmin = asyncHandler(async (req, res) => {
     await AuditLog.create({ admin: req.user._id, action: 'TEAM_MEMBER_ADDED', targetTeam: team._id, targetUser: userToAdd._id, details: `Added ${userToAdd.email} to ${team.name}` });
     emitTeamUpdate(req.app.get('socketio'), team._id, 'MEMBER_ADD');
 
-    res.json({ message: 'User added to team', user: { _id: userToAdd._id, name: userToAdd.name, email: userToAdd.email } });
+    // Return the updated member list to keep frontend in sync
+    const updatedTeam = await Team.findById(teamId)
+        .populate('owner', 'name email role')
+        .populate('members', 'name email role');
+
+    const membersWithStats = await Promise.all(updatedTeam.members.map(async (m) => {
+        const [assigned, completed] = await Promise.all([
+            Task.countDocuments({ team: updatedTeam._id, assignedTo: m._id }),
+            Task.countDocuments({ team: updatedTeam._id, assignedTo: m._id, status: 'Done' })
+        ]);
+        return {
+            ...m.toObject(),
+            tasksAssigned: assigned,
+            tasksCompleted: completed
+        };
+    }));
+
+    // Add owner with stats
+    const [ownerAssigned, ownerCompleted] = await Promise.all([
+        Task.countDocuments({ team: updatedTeam._id, assignedTo: updatedTeam.owner._id }),
+        Task.countDocuments({ team: updatedTeam._id, assignedTo: updatedTeam.owner._id, status: 'Done' })
+    ]);
+
+    const ownerWithStats = {
+        ...updatedTeam.owner.toObject(),
+        tasksAssigned: ownerAssigned,
+        tasksCompleted: ownerCompleted,
+        isOwner: true
+    };
+
+    res.json([ownerWithStats, ...membersWithStats]);
 });
 
 // @desc    Remove member from any team
@@ -325,6 +407,41 @@ const transferTeamOwnership = asyncHandler(async (req, res) => {
     res.json(team);
 });
 
+// @desc    Create a new team (Master Admin override)
+// @route   POST /api/admin/teams
+const createTeamAdmin = asyncHandler(async (req, res) => {
+    const { name, description, ownerId } = req.body;
+
+    if (!name || !ownerId) {
+        res.status(400);
+        throw new Error('Name and initial owner are required');
+    }
+
+    const owner = await User.findById(ownerId);
+    if (!owner) {
+        res.status(404);
+        throw new Error('Owner not found');
+    }
+
+    const team = await Team.create({
+        name,
+        description: description || '',
+        owner: ownerId,
+        members: []
+    });
+
+    await AuditLog.create({ 
+        admin: req.user._id, 
+        action: 'TEAM_CREATED', 
+        targetTeam: team._id, 
+        details: `Created team ${team.name} with owner ${owner.email}` 
+    });
+
+    emitTeamUpdate(req.app.get('socketio'), team._id, 'TEAM_CREATE');
+
+    res.status(201).json(team);
+});
+
 // @desc    Update team details overrides
 // @route   PUT /api/admin/teams/:teamId
 const updateTeamDetailsAdmin = asyncHandler(async (req, res) => {
@@ -367,5 +484,7 @@ export {
     getAuditLogs,
     getPendingUsers,
     approveUser,
-    rejectUser
+    rejectUser,
+    createTeamAdmin,
+    updateUserAdmin
 };

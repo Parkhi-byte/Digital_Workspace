@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTeamManagement } from '../hooks/useTeamManagement/useTeamManagement';
-import { Trash2, Edit2, Users, LayoutGrid, ArrowLeft, Search, Shield, Activity, ArrowRight } from 'lucide-react';
+import { Trash2, Edit2, Users, LayoutGrid, ArrowLeft, Search, Shield, Activity, ArrowRight, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TeamStats from '../components/TeamManagement/TeamStats';
 import InviteMember from '../components/TeamManagement/InviteMember';
 import TeamList from '../components/TeamManagement/TeamList';
 import TeamSelector from '../components/TeamManagement/TeamSelector';
+import UserEditModal from '../components/masterAdmin/UserEditModal';
 
 const TeamManagement = () => {
   const {
@@ -39,8 +40,57 @@ const TeamManagement = () => {
     allUsers,
     usersLoading,
     searchUsers,
-    fetchAllUsers
+    fetchAllUsers,
+    updateUserAdmin
   } = useTeamManagement();
+
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
+  const handleViewProfile = (user) => {
+    if (isMasterAdmin) {
+      setEditingUser(user);
+    }
+  };
+
+  const handleCloseEdit = () => {
+    setEditingUser(null);
+  };
+
+  const handleUpdateUserProfile = async (formData) => {
+    const success = await updateUserAdmin(formData);
+    if (success) {
+      handleCloseEdit();
+    }
+  };
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [newTeamOwnerId, setNewTeamOwnerId] = useState('');
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamDescription, setEditTeamDescription] = useState('');
+
+  const handleCreateTeam = async (e) => {
+    e.preventDefault();
+    if (!newTeamName || !newTeamOwnerId) return;
+    await createTeam(newTeamName, newTeamOwnerId);
+    setIsCreateModalOpen(false);
+    setNewTeamName('');
+    setNewTeamOwnerId('');
+  };
+
+  const handleEditTeam = (team) => {
+    setEditingTeam(team);
+    setEditTeamName(team.name);
+    setEditTeamDescription(team.description || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateTeam = async (e) => {
+    e.preventDefault();
+    await updateTeamDetails(editTeamName, editTeamDescription, editingTeam.id);
+    setIsEditModalOpen(false);
+  };
 
   if (!loading && teams.length === 1 && teams[0].id === 'default' && !isTeamOwner && !isAdmin) {
     return (
@@ -198,21 +248,34 @@ const TeamManagement = () => {
                 <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -ml-32 -mb-32" />
 
                 <div className="relative z-10">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10">
-                    <div className="relative w-full md:w-[400px] group">
-                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
-                      <input
-                        type="text"
-                        placeholder="Search teams by name or owner..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-14 pr-6 py-4 bg-white/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none font-medium text-gray-900 dark:text-white shadow-sm"
-                      />
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-10 pb-6 border-b border-gray-100 dark:border-gray-700/50">
+                      <div className="relative w-full md:w-[400px] group">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors" size={20} />
+                        <input
+                          type="text"
+                          placeholder="Search teams by name or owner..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-14 pr-6 py-4 bg-white/50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none font-medium text-gray-900 dark:text-white shadow-sm"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-6">
+                        <div className="hidden sm:block text-right">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Total Teams</p>
+                          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{teams.filter(t => t.id !== 'default').length}</p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => { fetchAllUsers(); setIsCreateModalOpen(true); }}
+                          className="px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-indigo-500/30 flex items-center gap-2 transition-all"
+                        >
+                          <Plus size={20} strokeWidth={3} />
+                          Create New Team
+                        </motion.button>
+                      </div>
                     </div>
-                    <div className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-                      Total Teams: <span className="text-indigo-600 dark:text-indigo-400">{teams.filter(t => t.id !== 'default').length}</span>
-                    </div>
-                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {(teams.filter(t => t.id !== 'default' && (t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.owner?.email?.toLowerCase().includes(searchTerm.toLowerCase())))).map((team, idx) => (
@@ -229,9 +292,17 @@ const TeamManagement = () => {
                           <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
                             <Shield size={24} />
                           </div>
-                          <div className="text-right">
-                            <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Members</span>
-                            <p className="text-xl font-black text-gray-900 dark:text-white">{team.totalMemberCount || team.members?.length || 0}</p>
+                          <div className="flex gap-2">
+                             <button
+                                onClick={(e) => { e.stopPropagation(); handleEditTeam(team); }}
+                                className="p-2 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                             >
+                                <Edit2 size={16} />
+                             </button>
+                             <div className="text-right">
+                               <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Members</span>
+                               <p className="text-xl font-black text-gray-900 dark:text-white">{team.totalMemberCount || team.members?.length || 0}</p>
+                             </div>
                           </div>
                         </div>
                         
@@ -293,6 +364,7 @@ const TeamManagement = () => {
                     usersLoading={usersLoading}
                     searchUsers={searchUsers}
                     fetchAllUsers={fetchAllUsers}
+                    isMasterAdmin={isMasterAdmin}
                   />
                 </div>
               </motion.div>
@@ -312,11 +384,154 @@ const TeamManagement = () => {
               hoveredMember={hoveredMember}
               setHoveredMember={setHoveredMember}
               handleRemoveMember={isTeamOwner ? handleRemoveMember : undefined}
+              onViewProfile={isMasterAdmin ? handleViewProfile : undefined}
             />
           </motion.div>
         </motion.div>
       )}
       </div>
+
+      {/* ─── Modals ─────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            >
+              <div className="p-8 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Create Team</h2>
+                  <p className="text-gray-500 text-sm font-medium mt-1">Setup a new organizational unit</p>
+                </div>
+                <button onClick={() => setIsCreateModalOpen(false)} className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl text-gray-400 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleCreateTeam} className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Team Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newTeamName}
+                    onChange={(e) => setNewTeamName(e.target.value)}
+                    placeholder="Enter team name..."
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Initial Owner (Head)</label>
+                  <select
+                    required
+                    value={newTeamOwnerId}
+                    onChange={(e) => setNewTeamOwnerId(e.target.value)}
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-gray-900 dark:text-white appearance-none"
+                  >
+                    <option value="">Select an owner...</option>
+                    {allUsers.map(u => (
+                      <option key={u._id} value={u._id}>{u.name} ({u.email}) - {u.role}</option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 mt-4"
+                >
+                  {loading ? 'Creating...' : 'Launch Team'}
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+            >
+              <div className="p-8 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Edit Team</h2>
+                  <p className="text-gray-500 text-sm font-medium mt-1">Update organizational details</p>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl text-gray-400 transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleUpdateTeam} className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Team Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTeamName}
+                    onChange={(e) => setEditTeamName(e.target.value)}
+                    placeholder="Enter team name..."
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Description</label>
+                  <textarea
+                    rows={3}
+                    value={editTeamDescription}
+                    onChange={(e) => setEditTeamDescription(e.target.value)}
+                    placeholder="Team goals, department info..."
+                    className="w-full px-5 py-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-gray-900 dark:text-white resize-none"
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => { if(window.confirm('Delete team completely?')) { deleteTeam(editingTeam.id); setIsEditModalOpen(false); } }}
+                    className="flex-1 py-4 bg-red-50 dark:bg-red-900/10 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-2xl font-black text-sm uppercase tracking-wider transition-all"
+                  >
+                    Delete Team
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-[2] py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* User Editing Modal (Master Admin only) */}
+      <UserEditModal 
+        user={editingUser}
+        isOpen={!!editingUser}
+        onClose={handleCloseEdit}
+        onUpdate={handleUpdateUserProfile}
+        isLoading={loading}
+      />
     </div>
   );
 };

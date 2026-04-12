@@ -291,7 +291,10 @@ export const useTeamManagement = () => {
 
         setLoading(true);
         try {
-            const res = await fetch('/api/team', {
+            const isMaster = user?.role === 'master_admin';
+            const endpoint = isMaster ? `/api/admin/teams/${currentTeamId}/members` : '/api/team';
+            
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -302,12 +305,16 @@ export const useTeamManagement = () => {
             const data = await res.json();
 
             if (res.ok) {
+                // Determine the correct member data based on response format
+                // Admin endpoint returns the updated member list directly
+                const updatedMembers = isMaster ? data : data; // Standardizing to data for now
+                
                 setTeams(prev => prev.map(t =>
                     t.id === currentTeamId
-                        ? { ...t, members: data.map(m => ({ ...m, tasksAssigned: m.tasksAssigned || 0, tasksCompleted: m.tasksCompleted || 0 })) }
+                        ? { ...t, members: (isMaster ? data : data).map(m => ({ ...m, tasksAssigned: m.tasksAssigned || 0, tasksCompleted: m.tasksCompleted || 0 })) }
                         : t
                 ));
-                showSuccess(`Invited ${email} successfully!`);
+                showSuccess(isMaster ? `${email} added to team successfully!` : `Invited ${email} successfully!`);
                 setInviteEmail('');
                 setInviteName('');
                 fetchActivities(currentTeamId);
@@ -355,24 +362,35 @@ export const useTeamManagement = () => {
         }
     }, [isTeamOwner, currentTeamId, user, showSuccess, fetchActivities, teams]);
 
-    const createTeam = useCallback(async (teamName) => {
+    const createTeam = useCallback(async (teamName, ownerId) => {
         if (!teamName?.trim()) return;
 
         try {
-            const res = await fetch('/api/team/create', {
+            const isMaster = user?.role === 'master_admin';
+            const endpoint = isMaster ? '/api/admin/teams' : '/api/team/create';
+            const body = isMaster ? { name: teamName, description: 'New Team', ownerId } : { name: teamName, description: 'New Team' };
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${getToken(user)}`
                 },
-                body: JSON.stringify({ name: teamName, description: 'New Team' })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
 
             if (res.ok) {
-                const newTeam = { id: data._id, name: data.name, description: data.description, members: [], isOwner: true };
+                const newTeam = { 
+                    id: data._id, 
+                    name: data.name, 
+                    description: data.description, 
+                    members: [], 
+                    isOwner: true,
+                    owner: data.owner // For master admin view
+                };
                 setTeams(prev => [...prev, newTeam]);
-                setCurrentTeamId(newTeam.id);
+                if (!isMaster) setCurrentTeamId(newTeam.id);
                 showSuccess('New team created successfully');
             } else {
                 setError(data.message || 'Failed to create team');
@@ -382,40 +400,52 @@ export const useTeamManagement = () => {
         }
     }, [user, showSuccess]);
 
-    const updateTeamDetails = useCallback(async (name, description) => {
+    const updateTeamDetails = useCallback(async (name, description, teamIdOverride) => {
         if (!isTeamOwner) { setError('Only team owner can update details'); return; }
 
+        const targetTeamId = teamIdOverride || currentTeamId;
+        if (!targetTeamId) return;
+
         try {
-            const res = await fetch('/api/team', {
-                method: 'PUT',
+            const isMaster = user?.role === 'master_admin';
+            const endpoint = isMaster ? `/api/admin/teams/${targetTeamId}` : '/api/team';
+            const method = isMaster ? 'PUT' : 'PUT';
+            const body = isMaster ? { name, description } : { name, description, teamId: targetTeamId };
+
+            const res = await fetch(endpoint, {
+                method,
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${getToken(user)}`
                 },
-                body: JSON.stringify({ name, description, teamId: currentTeamId })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
 
             if (res.ok) {
                 setTeams(prev => prev.map(t =>
-                    t.id === currentTeamId
-                        ? { ...t, name: data.teamName, description: data.teamDescription }
+                    t.id === targetTeamId
+                        ? { ...t, name: data.name || data.teamName, description: data.description || data.teamDescription }
                         : t
                 ));
+                showSuccess('Team updated');
             } else {
                 setError(data.message || 'Failed to update team details');
             }
         } catch {
             setError('Network error updating team');
         }
-    }, [isTeamOwner, user, currentTeamId]);
+    }, [isTeamOwner, user, currentTeamId, showSuccess]);
 
     const deleteTeam = useCallback(async (teamId) => {
         if (!isTeamOwner) return;
         if (!window.confirm('Are you sure you want to delete this team? This action cannot be undone.')) return;
 
         try {
-            const res = await fetch(`/api/team/delete/${teamId}`, {
+            const isMaster = user?.role === 'master_admin';
+            const endpoint = isMaster ? `/api/admin/teams/${teamId}` : `/api/team/delete/${teamId}`;
+
+            const res = await fetch(endpoint, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${getToken(user)}` }
             });
@@ -436,7 +466,47 @@ export const useTeamManagement = () => {
         } catch {
             setError('Network error deleting team');
         }
-    }, [isTeamOwner, user, currentTeamId, showSuccess]);
+    }, [isTeamOwner, user, currentTeamId, showSuccess, fetchActivities, teams]);
+
+    const handleUpdateUserAdmin = useCallback(async (formData) => {
+        if (user?.role !== 'master_admin') return;
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/admin/users/${formData.userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken(user)}`
+                },
+                body: JSON.stringify(formData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                // Determine which team we're looking at to refresh
+                const targetTeamId = currentTeamId;
+                if (targetTeamId) {
+                    fetchActivities(targetTeamId);
+                    // Also refresh the team members list by re-fetching teams or manually updating
+                    setTeams(prev => prev.map(t => {
+                        if (t.id === targetTeamId) {
+                            return {
+                                ...t,
+                                members: t.members.map(m => m._id === formData.userId ? { ...m, name: formData.name, email: formData.email } : m)
+                            };
+                        }
+                        return t;
+                    }));
+                }
+                showSuccess('User profile updated successfully!');
+                return true;
+            } else throw new Error(data.message || 'Failed to update user');
+        } catch (err) {
+            setError(err.message);
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    }, [user, currentTeamId, showSuccess, fetchActivities]);
 
     // ── Return ───────────────────────────────────────────────────────────────
     return {
@@ -453,6 +523,7 @@ export const useTeamManagement = () => {
         teams, currentTeam, setCurrentTeamId,
         createTeam, handleInvite, handleRemoveMember,
         updateTeamDetails, deleteTeam,
+        updateUserAdmin: handleUpdateUserAdmin,
         activities,
         allUsers, usersLoading, searchUsers, fetchAllUsers
     };

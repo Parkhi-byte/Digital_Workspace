@@ -13,7 +13,7 @@ const formatRole = (role) => {
         .join(' ');
 };
 
-const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hoveredMember, setHoveredMember, handleRemoveMember }) => {
+const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hoveredMember, setHoveredMember, handleRemoveMember, onViewProfile }) => {
     const [roleFilter, setRoleFilter] = React.useState('all');
     const [sortBy, setSortBy] = React.useState('name');
     const [sortOrder, setSortOrder] = React.useState('asc');
@@ -271,7 +271,10 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
                                             {/* Dropdown */}
                                             <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-black/50 border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-[100] transform origin-top-right scale-95 group-hover/menu:scale-100">
                                                 <div className="p-1">
-                                                    <button className="w-full text-left px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center gap-2">
+                                                    <button 
+                                                        onClick={() => onViewProfile && onViewProfile(member)}
+                                                        className="w-full text-left px-3 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors flex items-center gap-2"
+                                                    >
                                                         <User size={14} /> View Profile
                                                     </button>
                                                     {handleRemoveMember && !member.isOwner && member.role !== 'admin' && (

@@ -15,7 +15,9 @@ import {
     getAuditLogs,
     getPendingUsers,
     approveUser,
-    rejectUser
+    rejectUser,
+    createTeamAdmin,
+    updateUserAdmin
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -28,8 +30,9 @@ router.route('/users')
 router.route('/users/pending')
     .get(getPendingUsers);
 
-router.route('/users/:userId/role')
-    .patch(updateUserRole);
+router.route('/users/:userId')
+    .put(updateUserAdmin)
+    .delete(deleteUserAdmin);
 
 router.route('/users/:userId/suspend')
     .patch(toggleUserSuspension);
@@ -40,11 +43,11 @@ router.route('/users/:userId/approve')
 router.route('/users/:userId/reject')
     .delete(rejectUser);
 
-router.route('/users/:userId')
-    .delete(deleteUserAdmin);
+// Note: /users/:userId DELETE is already handled in the route block above
 
 router.route('/teams')
-    .get(getAllTeamsAdmin);
+    .get(getAllTeamsAdmin)
+    .post(createTeamAdmin);
 
 router.route('/teams/:teamId')
     .put(updateTeamDetailsAdmin)

@@ -80,23 +80,22 @@ export const useMasterAdminData = () => {
         onError: (err) => toast.error('Failed to delete user')
     });
 
-    const changeRoleMutation = useMutation({
-        mutationFn: async ({ userId, newRole }) => {
-            const res = await fetch(`/api/admin/users/${userId}/role`, {
-                method: 'PATCH',
+    const updateUserMutation = useMutation({
+        mutationFn: async ({ userId, name, email, password }) => {
+            const res = await fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
                 headers,
-                body: JSON.stringify({ role: newRole })
+                body: JSON.stringify({ name, email, password })
             });
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.message || 'Failed to update role');
+                throw new Error(errorData.message || 'Failed to update user');
             }
             return res.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['adminUsers']);
-            queryClient.invalidateQueries(['adminStats']);
-            toast.success('User role updated');
+            toast.success('User updated successfully');
         },
         onError: (err) => toast.error(err.message)
     });
@@ -232,7 +231,7 @@ export const useMasterAdminData = () => {
         mutations: {
             deleteTeam: deleteTeamMutation,
             deleteUser: deleteUserMutation,
-            changeRole: changeRoleMutation,
+            updateUser: updateUserMutation,
             addMember: addMemberMutation,
             removeMember: removeMemberMutation,
             toggleSuspend: toggleSuspendMutation,

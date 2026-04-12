@@ -29,7 +29,8 @@ const InviteMember = memo(({
     inviteName, setInviteName,
     handleInvite, loading, error, success,
     allUsers = [], usersLoading = false,
-    searchUsers, fetchAllUsers
+    searchUsers, fetchAllUsers,
+    isMasterAdmin = false
 }) => {
     const [showDropdown, setShowDropdown] = useState(false);
     const [selectedUser, setSelectedUser] = useState(null);
@@ -98,8 +99,12 @@ const InviteMember = memo(({
                         <UserPlus size={32} />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Invite Member</h2>
-                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">Expand Your Team</p>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {isMasterAdmin ? 'Add Member to Team' : 'Invite Member'}
+                        </h2>
+                        <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-1">
+                            {isMasterAdmin ? 'Direct Team Override' : 'Expand Your Team'}
+                        </p>
                     </div>
                 </div>
 
@@ -231,7 +236,7 @@ const InviteMember = memo(({
                             <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                         ) : (
                             <>
-                                <span>Send Invitation</span>
+                                <span>{isMasterAdmin ? 'Add to Team' : 'Send Invitation'}</span>
                                 <Sparkles size={18} className="group-hover:text-amber-400 transition-colors duration-300" />
                             </>
                         )}
