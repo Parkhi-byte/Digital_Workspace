@@ -2,6 +2,8 @@ import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import Team from '../models/Team.js';
 import Task from '../models/Task.js';
+import Document from '../models/Document.js';
+import { createNotifications, createNotification, emitTeamUpdate } from '../utils/notificationService.js';
 import Activity from '../models/Activity.js';
 import AuditLog from '../models/AuditLog.js';
 
@@ -48,7 +50,36 @@ const getAllTeamsAdmin = asyncHandler(async (req, res) => {
         .populate('members', 'name email role')
         .sort({ createdAt: -1 });
 
-    res.json(teams);
+    // Enrich teams with task statistics
+    const enrichedTeams = await Promise.all(teams.map(async (team) => {
+        const teamObj = team.toObject();
+        
+        // Helper to get stats for a user in this team context
+        const getUserStats = async (userId) => {
+            const assigned = await Task.countDocuments({ team: team._id, assignedTo: userId });
+            const completed = await Task.countDocuments({ team: team._id, assignedTo: userId, status: 'Done' });
+            return { assigned, completed };
+        };
+
+        // Enrich Owner
+        if (teamObj.owner) {
+            const { assigned, completed } = await getUserStats(teamObj.owner._id);
+            teamObj.owner.tasksAssigned = assigned;
+            teamObj.owner.tasksCompleted = completed;
+        }
+
+        // Enrich Members
+        if (teamObj.members) {
+            teamObj.members = await Promise.all(teamObj.members.map(async (member) => {
+                const { assigned, completed } = await getUserStats(member._id);
+                return { ...member, tasksAssigned: assigned, tasksCompleted: completed };
+            }));
+        }
+
+        return teamObj;
+    }));
+
+    res.json(enrichedTeams);
 });
 
 // @desc    Update any user's role
@@ -87,6 +118,9 @@ const updateUserRole = asyncHandler(async (req, res) => {
         targetUser: updatedUser._id,
         details: `Role changed from ${oldRole} to ${role}`
     });
+
+    // Real-time Update
+    emitTeamUpdate(req.app.get('socketio'), null, 'ROLE_UPDATE', [updatedUser._id]);
 
     res.json({
         _id: updatedUser._id,
@@ -203,6 +237,9 @@ const addMemberToTeamAdmin = asyncHandler(async (req, res) => {
         details: `Added ${userToAdd.email} to team ${team.name}`
     });
 
+    // Real-time Update
+    emitTeamUpdate(req.app.get('socketio'), team._id, 'MEMBER_ADD');
+
     res.json({ message: 'User added to team', user: { _id: userToAdd._id, name: userToAdd.name, email: userToAdd.email } });
 });
 
@@ -239,6 +276,9 @@ const removeMemberFromTeamAdmin = asyncHandler(async (req, res) => {
         details: `Removed user from team ${team.name}`
     });
 
+    // Real-time Update
+    emitTeamUpdate(req.app.get('socketio'), team._id, 'MEMBER_REMOVE');
+
     res.json({ message: 'User removed from team' });
 });
 
@@ -253,6 +293,12 @@ const getPlatformStats = asyncHandler(async (req, res) => {
     const teamHeads = await User.countDocuments({ role: { $in: ['team_head', 'admin'] }, status: { $ne: 'pending' } });
     const teamMembers = await User.countDocuments({ role: 'team_member', status: { $ne: 'pending' } });
     const totalTeams = await Team.countDocuments({});
+    
+    // Platform-wide counts
+    const totalTasks = await Task.countDocuments({});
+    const completedTasks = await Task.countDocuments({ status: 'Done' });
+    const totalDocuments = await Document.countDocuments({});
+    const totalActivities = await Activity.countDocuments({});
 
     res.json({
         totalUsers,
@@ -261,7 +307,11 @@ const getPlatformStats = asyncHandler(async (req, res) => {
         pendingUsers,
         teamHeads,
         teamMembers,
-        totalTeams
+        totalTeams,
+        totalTasks,
+        completedTasks,
+        totalDocuments,
+        totalActivities
     });
 });
 
@@ -299,6 +349,9 @@ const approveUser = asyncHandler(async (req, res) => {
         targetUser: user._id,
         details: `Approved Team Head account for ${user.email}`
     });
+
+    // Real-time Update
+    emitTeamUpdate(req.app.get('socketio'), null, 'USER_APPROVED', [user._id]);
 
     res.json({ message: `${user.name}'s account has been approved.`, user });
 });
@@ -413,6 +466,9 @@ const transferTeamOwnership = asyncHandler(async (req, res) => {
         targetUser: newOwnerId,
         details: `Transferred ownership of ${team.name} to ${newOwner.email}`
     });
+
+    // Real-time Update
+    emitTeamUpdate(req.app.get('socketio'), team._id, 'OWNERSHIP_TRANSFER');
 
     res.json(team);
 });

@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import Task from '../models/Task.js';
 import Team from '../models/Team.js';
 import Activity from '../models/Activity.js';
-import { createNotifications } from '../utils/notificationService.js';
+import { createNotifications, emitTeamUpdate } from '../utils/notificationService.js';
 
 // ─── Batch helper: get stats for ALL members in 2 queries instead of N*2 ─────
 const getBatchMemberStats = async (memberIds) => {
@@ -301,6 +301,9 @@ const addTeamMember = asyncHandler(async (req, res) => {
         }, io);
     }
 
+    // Real-time Dashboard Update
+    emitTeamUpdate(req.app.get('socketio'), targetTeam._id, 'MEMBER_ADD');
+
     // Log Activity
     await Activity.create({
         teamOwner: req.user._id,
@@ -395,6 +398,9 @@ const removeTeamMember = asyncHandler(async (req, res) => {
         }, io);
     }
 
+    // Real-time Dashboard Update
+    emitTeamUpdate(io, team._id, 'MEMBER_REMOVE');
+
     await Activity.create({
         teamOwner: req.user._id,
         team: team._id,
@@ -444,6 +450,9 @@ const updateTeamDetails = asyncHandler(async (req, res) => {
         }, io);
     }
 
+    // Real-time Dashboard Update
+    emitTeamUpdate(io, team._id, 'TEAM_METADATA_UPDATE');
+
     res.json({
         teamName: team.name,
         teamDescription: team.description,
@@ -465,8 +474,9 @@ const getTeamActivity = asyncHandler(async (req, res) => {
 
     const isOwner = team.owner.toString() === req.user._id.toString();
     const isMember = team.members.some(m => m && m.toString() === req.user._id.toString());
+    const isMaster = req.user.role === 'master_admin';
 
-    if (!isOwner && !isMember) {
+    if (!isOwner && !isMember && !isMaster) {
         res.status(403);
         throw new Error('Not authorized to view this team\'s activity');
     }
@@ -511,6 +521,9 @@ const deleteTeam = asyncHandler(async (req, res) => {
             link: '/dashboard'
         }, io);
     }
+
+    // Real-time Dashboard Update (Global Update as team is gone)
+    emitTeamUpdate(io, null, 'TEAM_DELETE');
 
     await team.deleteOne();
     await Activity.deleteMany({ team: teamId });

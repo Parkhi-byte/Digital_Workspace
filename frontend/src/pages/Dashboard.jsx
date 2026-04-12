@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import {
     Users, Clock, Zap, Video, Plus, Calendar, ArrowRight, Sparkles, TrendingUp,
-    CheckCircle, ListTodo, FileText, Shield, BarChart3, Target, AlertTriangle
+    CheckCircle, ListTodo, FileText, Shield, BarChart3, Target, AlertTriangle,
+    Settings, Database, Activity, FileSearch, LayoutGrid, HardDrive
 } from 'lucide-react';
 import { APP_FEATURES } from '../constants';
 import { motion } from 'framer-motion';
@@ -17,7 +18,29 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
         const headers = { 'Authorization': `Bearer ${user.token}` };
 
-        let dashboardData = { teamMembers: [], activities: [], tasks: [], events: [], documents: [], teams: [] };
+        let dashboardData = { teamMembers: [], activities: [], tasks: [], events: [], documents: [], teams: [], platformStats: null, auditLogs: [] };
+
+        if (user.role === 'master_admin') {
+            // Fetch Platform Stats
+            try {
+                const statsRes = await fetch('/api/admin/stats', { headers });
+                if (statsRes.ok) dashboardData.platformStats = await statsRes.json();
+            } catch (e) { /* silently fail */ }
+
+            // Fetch Audit Logs
+            try {
+                const auditRes = await fetch('/api/admin/audit-logs', { headers });
+                if (auditRes.ok) dashboardData.auditLogs = await auditRes.json();
+            } catch (e) { /* silently fail */ }
+
+            // Still fetch events for the master admin's calendar
+            try {
+                const eventRes = await fetch('/api/events', { headers });
+                if (eventRes.ok) dashboardData.events = await eventRes.json();
+            } catch (e) { /* silently fail */ }
+
+            return dashboardData;
+        }
 
         // Fetch Teams (safe — always returns an array even for members)
         try {
@@ -75,16 +98,43 @@ const Dashboard = () => {
         retry: 1
     });
 
-    const activities = dashboardData?.activities || [];
+    const activities = user?.role === 'master_admin' ? dashboardData?.auditLogs || [] : dashboardData?.activities || [];
     const teamMembers = dashboardData?.teamMembers || [];
     const tasks = dashboardData?.tasks || [];
     const events = dashboardData?.events || [];
     const documents = dashboardData?.documents || [];
     const teams = dashboardData?.teams || [];
+    const platformStats = dashboardData?.platformStats || null;
     const isMemberWithNoTeam = user?.role === 'team_member' && teams.length === 0;
+    const isMasterAdmin = user?.role === 'master_admin';
 
     // ─── Computed Analytics ──────────────────────────────────────────
     const analytics = useMemo(() => {
+        if (isMasterAdmin && platformStats) {
+            const completionRate = platformStats.totalTasks > 0 ? Math.round((platformStats.completedTasks / platformStats.totalTasks) * 100) : 0;
+            
+            const now = new Date();
+            const upcomingEvents = events
+                .filter(e => new Date(e.start || e.date) >= now)
+                .sort((a, b) => new Date(a.start || a.date) - new Date(b.start || b.date))
+                .slice(0, 5);
+
+            return {
+                totalTasks: platformStats.totalTasks,
+                completedTasks: platformStats.completedTasks,
+                completionRate,
+                totalDocuments: platformStats.totalDocuments,
+                totalMembers: platformStats.totalUsers,
+                totalTeams: platformStats.totalTeams,
+                inProgressTasks: platformStats.totalTasks - platformStats.completedTasks,
+                upcomingEvents,
+                overdueTasks: [], // Global overdue tasks would require a separate query or processing
+                highPriorityTasks: [],
+                weekData: [], // Platform weekly data would require aggregation
+                maxWeekCount: 1
+            };
+        }
+
         const totalTasks = tasks.length;
         const completedTasks = tasks.filter(t => t.status === 'Done').length;
         const inProgressTasks = tasks.filter(t => t.status === 'In Progress').length;
@@ -126,7 +176,7 @@ const Dashboard = () => {
             totalMembers: teamMembers.length,
             weekData, maxWeekCount
         };
-    }, [tasks, events, documents, teamMembers]);
+    }, [tasks, events, documents, teamMembers, isMasterAdmin, platformStats]);
 
     const features = APP_FEATURES;
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -186,15 +236,29 @@ const Dashboard = () => {
                             {today}
                         </p>
                         <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-gray-900 dark:text-white mb-2">
-                            Welcome back, <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">{user.name.split(' ')[0]}</span>
+                            {isMasterAdmin ? (
+                                <>System <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">Overview</span></>
+                            ) : (
+                                <>Welcome back, <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 dark:from-indigo-400 dark:via-purple-400 dark:to-pink-400 bg-clip-text text-transparent">{user.name.split(' ')[0]}</span></>
+                            )}
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400 font-medium flex items-center gap-2">
                             <Sparkles size={16} className="text-yellow-500" />
-                            Ready to make today productive?
+                            {isMasterAdmin ? 'Platform-wide statistics and management' : 'Ready to make today productive?'}
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto mt-4 md:mt-0">
-                        {user.role !== 'team_member' && (
+                        {isMasterAdmin && (
+                             <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate('/admin')}
+                                className="w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-3 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl text-sm font-bold hover:bg-white dark:hover:bg-gray-800 transition-all shadow-lg"
+                            >
+                                <LayoutGrid size={18} strokeWidth={2.5} /> Control Center
+                            </motion.button>
+                        )}
+                        {!isMasterAdmin && user.role !== 'team_member' && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -207,10 +271,11 @@ const Dashboard = () => {
                         <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate('/video-call')}
+                            onClick={() => navigate(isMasterAdmin ? '/admin' : '/video-call')}
                             className="w-full sm:w-auto justify-center flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-indigo-500/30"
                         >
-                            <Video size={18} strokeWidth={2.5} /> New Meeting
+                            {isMasterAdmin ? <Users size={18} strokeWidth={2.5} /> : <Video size={18} strokeWidth={2.5} />} 
+                            {isMasterAdmin ? 'Manage Users' : 'New Meeting'}
                         </motion.button>
                     </div>
                 </motion.div>
@@ -219,40 +284,40 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-10">
                     {[
                         {
-                            label: 'Total Tasks',
+                            label: isMasterAdmin ? 'Platform Tasks' : 'Total Tasks',
                             value: analytics.totalTasks,
-                            sub: `${analytics.completedTasks} completed`,
+                            sub: isMasterAdmin ? `${analytics.completedTasks} completed across platform` : `${analytics.completedTasks} completed`,
                             icon: ListTodo,
                             color: 'from-blue-500 to-indigo-600',
                             shadowColor: 'shadow-blue-500/20',
-                            path: '/kanban'
+                            path: isMasterAdmin ? '/admin' : '/kanban'
                         },
                         {
-                            label: 'Completion',
+                            label: isMasterAdmin ? 'Global Completion' : 'Completion',
                             value: `${analytics.completionRate}%`,
-                            sub: `${analytics.inProgressTasks} in progress`,
+                            sub: isMasterAdmin ? 'Efficiency across all teams' : `${analytics.inProgressTasks} in progress`,
                             icon: Target,
                             color: 'from-emerald-500 to-teal-600',
                             shadowColor: 'shadow-emerald-500/20',
-                            path: '/kanban'
+                            path: isMasterAdmin ? '/admin' : '/kanban'
                         },
                         {
-                            label: 'Documents',
+                            label: isMasterAdmin ? 'Total Files' : 'Documents',
                             value: analytics.totalDocuments,
-                            sub: 'Files stored',
+                            sub: isMasterAdmin ? 'Total cloud storage used' : 'Files stored',
                             icon: FileText,
                             color: 'from-orange-500 to-red-500',
                             shadowColor: 'shadow-orange-500/20',
-                            path: '/document-share'
+                            path: isMasterAdmin ? '/admin' : '/document-share'
                         },
                         {
-                            label: 'Team Members',
+                            label: isMasterAdmin ? 'Total Users' : 'Team Members',
                             value: analytics.totalMembers,
-                            sub: 'Active collaborators',
+                            sub: isMasterAdmin ? `${analytics.totalTeams} active teams` : 'Active collaborators',
                             icon: Users,
                             color: 'from-purple-500 to-pink-600',
                             shadowColor: 'shadow-purple-500/20',
-                            path: '/team-management'
+                            path: isMasterAdmin ? '/admin' : '/team-management'
                         }
                     ].map((stat, i) => (
                         <motion.div
@@ -284,10 +349,47 @@ const Dashboard = () => {
                         animate={{ opacity: 1, x: 0 }}
                         className="text-2xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-2"
                     >
-                        <Zap size={24} className="text-indigo-500" /> Quick Access
+                        {isMasterAdmin ? (
+                            <><Database size={24} className="text-indigo-500" /> Administrative Tools</>
+                        ) : (
+                            <><Zap size={24} className="text-indigo-500" /> Quick Access</>
+                        )}
                     </motion.h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {features.map((feature, index) => (
+                        {(isMasterAdmin ? [
+                            {
+                                title: 'Identity Registry',
+                                description: 'Manage all platform users, roles, and account statuses globally.',
+                                icon: Users,
+                                path: '/admin',
+                                iconBg: 'from-blue-500 to-indigo-600',
+                                stats: 'Global User base'
+                            },
+                            {
+                                title: 'Team Divisions',
+                                description: 'Oversee all teams, transfer ownership, and monitor workspace health.',
+                                icon: Shield,
+                                path: '/admin',
+                                iconBg: 'from-purple-500 to-pink-600',
+                                stats: 'Workspace Control'
+                            },
+                            {
+                                title: 'Audit Logs',
+                                description: 'Detailed history of administrative actions and system-wide changes.',
+                                icon: FileSearch,
+                                path: '/admin',
+                                iconBg: 'from-amber-400 to-orange-500',
+                                stats: 'System Transparency'
+                            },
+                            {
+                                title: 'Maintenance',
+                                description: 'Configure platform settings, view system logs, and manage storage.',
+                                icon: HardDrive,
+                                path: '/admin',
+                                iconBg: 'from-emerald-500 to-teal-600',
+                                stats: 'System Health'
+                            }
+                        ] : features).map((feature, index) => (
                             <motion.div
                                 key={index}
                                 initial={{ opacity: 0, y: 20 }}
@@ -325,24 +427,51 @@ const Dashboard = () => {
                         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-3xl border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-lg">
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                    <BarChart3 size={20} className="text-indigo-500" /> Weekly Progress
+                                    <BarChart3 size={20} className="text-indigo-500" /> {isMasterAdmin ? 'Platform Progress' : 'Weekly Progress'}
                                 </h3>
-                                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Last 7 days</span>
+                                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{isMasterAdmin ? 'Overall Completion' : 'Last 7 days'}</span>
                             </div>
-                            <div className="flex items-end gap-3 h-32">
-                                {analytics.weekData.map((d, i) => (
-                                    <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                                        <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{d.count}</span>
-                                        <motion.div
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${Math.max((d.count / analytics.maxWeekCount) * 100, 8)}%` }}
-                                            transition={{ delay: 0.5 + i * 0.08, type: 'spring', stiffness: 100 }}
-                                            className={`w-full rounded-xl ${d.count > 0 ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-md shadow-indigo-500/20' : 'bg-gray-200 dark:bg-gray-700'}`}
-                                        />
-                                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">{d.day}</span>
+                            {isMasterAdmin ? (
+                                <div className="space-y-4 py-4">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Task Completion Rate</span>
+                                        <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{analytics.completionRate}%</span>
                                     </div>
-                                ))}
-                            </div>
+                                    <div className="h-4 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden border border-gray-200/50 dark:border-gray-700/50">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${analytics.completionRate}%` }}
+                                            transition={{ duration: 1, ease: 'easeOut' }}
+                                            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 mt-6">
+                                        <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/30">
+                                            <p className="text-xs font-bold text-gray-500 uppercase mb-1">Total Activities</p>
+                                            <p className="text-xl font-black text-indigo-600">{platformStats?.totalActivities || 0}</p>
+                                        </div>
+                                        <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800/30">
+                                            <p className="text-xs font-bold text-gray-500 uppercase mb-1">Active Teams</p>
+                                            <p className="text-xl font-black text-purple-600">{platformStats?.totalTeams || 0}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-end gap-3 h-32">
+                                    {analytics.weekData.map((d, i) => (
+                                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400">{d.count}</span>
+                                            <motion.div
+                                                initial={{ height: 0 }}
+                                                animate={{ height: `${Math.max((d.count / analytics.maxWeekCount) * 100, 8)}%` }}
+                                                transition={{ delay: 0.5 + i * 0.08, type: 'spring', stiffness: 100 }}
+                                                className={`w-full rounded-xl ${d.count > 0 ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-md shadow-indigo-500/20' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                            />
+                                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">{d.day}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Activity Feed */}
@@ -350,9 +479,9 @@ const Dashboard = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
                                     <TrendingUp size={24} className="text-indigo-500" />
-                                    Recent Activity
+                                    {isMasterAdmin ? 'System Activity' : 'Recent Activity'}
                                 </h2>
-                                <button onClick={() => navigate('/notifications')} className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold flex items-center gap-1 group">
+                                <button onClick={() => navigate(isMasterAdmin ? '/admin' : '/notifications')} className="text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-bold flex items-center gap-1 group">
                                     View All <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                                 </button>
                             </div>
@@ -367,12 +496,16 @@ const Dashboard = () => {
                                                 transition={{ delay: 0.5 + index * 0.08 }}
                                                 className="flex items-start gap-4 pb-4 border-b border-gray-200 dark:border-gray-700 last:border-0 last:pb-0"
                                             >
-                                                <div className="mt-1 w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                                                    <Users size={18} />
+                                                <div className={`mt-1 w-10 h-10 rounded-xl bg-gradient-to-br ${isMasterAdmin ? 'from-amber-500 to-orange-600' : 'from-indigo-500 to-purple-600'} text-white flex items-center justify-center shrink-0 shadow-md`}>
+                                                    {isMasterAdmin ? <Activity size={18} /> : <Users size={18} />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                                        <span className="font-black">Team Admin</span> {activity.text}
+                                                        {isMasterAdmin ? (
+                                                            <><span className="font-black text-indigo-600 dark:text-indigo-400">{activity.admin?.name || 'Admin'}</span> {activity.details}</>
+                                                        ) : (
+                                                            <><span className="font-black">Team Admin</span> {activity.text}</>
+                                                        )}
                                                     </p>
                                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium">{new Date(activity.createdAt).toLocaleDateString()} • {new Date(activity.createdAt).toLocaleTimeString()}</p>
                                                 </div>
@@ -512,20 +645,23 @@ const Dashboard = () => {
                                     </div>
                                     <span className="text-xs font-black bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl uppercase tracking-wider shadow-md">Active</span>
                                 </div>
-                                <h3 className="text-3xl font-black mb-2">{user.role === 'admin' ? 'Admin Access' : 'Member'}</h3>
-                                <p className="text-indigo-100 text-sm mb-6 font-medium">Manage your workspace.</p>
+                                <h3 className="text-3xl font-black mb-2">
+                                    {isMasterAdmin ? 'Master Access' : (user.role === 'admin' ? 'Admin Access' : 'Member')}
+                                </h3>
+                                <p className="text-indigo-100 text-sm mb-6 font-medium">
+                                    {isMasterAdmin ? 'Full platform control and oversight.' : (user.role === 'admin' ? 'Manage your workspace.' : 'Manage your workspace.')}
+                                </p>
 
-                                {user.role === 'admin' && (
+                                {(isMasterAdmin || user.role === 'admin') ? (
                                     <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => navigate('/team-management')}
+                                        onClick={() => navigate(isMasterAdmin ? '/admin' : '/team-management')}
                                         className="w-full py-3.5 bg-white text-indigo-600 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all shadow-xl"
                                     >
-                                        Manage Team
+                                        {isMasterAdmin ? 'Control Center' : 'Manage Team'}
                                     </motion.button>
-                                )}
-                                {user.role !== 'admin' && (
+                                ) : (
                                     <div className="flex -space-x-3 mt-2">
                                         {teamMembers.length > 0 ? teamMembers.slice(0, 5).map(m => (
                                             <div key={m._id} className="w-11 h-11 rounded-full border-2 border-white/50 bg-white/20 backdrop-blur-md flex items-center justify-center text-sm font-bold shadow-lg" title={m.name}>

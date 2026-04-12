@@ -23,7 +23,7 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
     const normalizeRole = (role) => {
         if (!role) return 'member';
         const normalized = role.toLowerCase();
-        if (normalized.includes('admin') || normalized === 'owner') return 'admin';
+        if (normalized.includes('admin') || normalized === 'owner' || normalized.includes('head')) return 'admin';
         return 'member';
     };
 
@@ -208,14 +208,13 @@ const TeamList = ({ filteredMembers, teamMembers, searchTerm, setSearchTerm, hov
                                         <div className="min-w-0">
                                             <h4 className="font-bold text-gray-900 dark:text-white text-base md:text-lg flex items-center gap-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                                 <span className="truncate">{member.name || 'Anonymous User'}</span>
-                                                {member.role === 'admin' && (
-                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white border border-violet-300 shadow-sm flex-shrink-0 inline-flex items-center gap-1">
-                                                        <BadgeCheck size={10} /> ADMIN
-                                                    </span>
-                                                )}
-                                                {member.role === 'team_head' && (
-                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 text-white border border-amber-200 shadow-sm flex-shrink-0 inline-flex items-center gap-1">
-                                                        <Shield size={10} /> HEAD
+                                                {(member.role === 'admin' || member.role === 'team_head' || member.isOwner) && (
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shadow-sm flex-shrink-0 inline-flex items-center gap-1 ${
+                                                        member.isOwner || member.role === 'team_head'
+                                                        ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white border-amber-200'
+                                                        : 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white border-violet-300'
+                                                    }`}>
+                                                        <Shield size={10} /> {member.isOwner || member.role === 'team_head' ? 'HEAD' : 'ADMIN'}
                                                     </span>
                                                 )}
                                             </h4>

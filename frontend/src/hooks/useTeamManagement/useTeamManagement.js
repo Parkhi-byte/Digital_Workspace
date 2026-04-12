@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useChatContext } from '../../context/ChatContext';
 
 // ─── Token helper ────────────────────────────────────────────────────────────
 const getToken = (user) =>
@@ -24,6 +25,7 @@ const getCachedData = () => {
 
 export const useTeamManagement = () => {
     const { user } = useAuth();
+    const { socketRef, socketConnected } = useChatContext();
 
     // ── Initialize from cache for instant render ─────────────────────────────
     const cached = useRef(getCachedData()).current;
@@ -78,7 +80,10 @@ export const useTeamManagement = () => {
             if (!getCachedData()) setLoading(true);
 
             const token = getToken(user);
-            const res = await fetch('/api/team', {
+            const isMaster = user?.role === 'master_admin';
+            const endpoint = isMaster ? '/api/admin/teams' : '/api/team';
+
+            const res = await fetch(endpoint, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -89,6 +94,20 @@ export const useTeamManagement = () => {
             }
 
             let fetchedTeams = Array.isArray(data) ? data : [];
+
+            // Normalize data: ensure id is set and isOwner reflects master_admin status
+            fetchedTeams = fetchedTeams.map(t => {
+                const members = t.members || [];
+                const owner = t.owner;
+                const ownerInMembers = owner && members.some(m => (m._id || m) === (owner._id || owner));
+                
+                return {
+                    ...t,
+                    id: t.id || t._id,
+                    isOwner: isMaster ? true : (t.isOwner || owner?._id === user._id),
+                    totalMemberCount: members.length + (ownerInMembers ? 0 : 1)
+                };
+            });
 
             if (fetchedTeams.length === 0) {
                 fetchedTeams = [{
@@ -103,9 +122,12 @@ export const useTeamManagement = () => {
             setTeams(fetchedTeams);
 
             setCurrentTeamId(prev => {
+                const isMaster = user?.role === 'master_admin';
+                if (isMaster && !prev) return null; // Let master admin see the grid first
+                
                 const nextId = (prev && fetchedTeams.some(t => t.id === prev))
                     ? prev
-                    : fetchedTeams[0]?.id ?? null;
+                    : (isMaster ? null : fetchedTeams[0]?.id ?? null);
                 return nextId;
             });
         } catch {
@@ -134,14 +156,65 @@ export const useTeamManagement = () => {
     useEffect(() => { if (user) fetchTeams(); }, [user, fetchTeams]);
     useEffect(() => { if (currentTeamId) fetchActivities(currentTeamId); }, [currentTeamId, fetchActivities]);
 
+    // ── Real-time Updates ───────────────────────────────────────────────────
+    useEffect(() => {
+        if (!socketRef?.current || !socketConnected) return;
+
+        // Stability Fix: Join specifically only the rooms I care about
+        const teamIds = teams.map(t => t.id || t._id).filter(id => id && id !== 'default');
+        if (teamIds.length > 0) {
+            socketRef.current.emit('setup_dashboard', { teamIds });
+        }
+
+        const handleTeamUpdate = (payload) => {
+            console.log('[useTeamManagement] Real-time Update Received:', payload);
+            fetchTeams();
+            if (currentTeamId && payload.teamId === currentTeamId) {
+                fetchActivities(currentTeamId);
+            }
+        };
+
+        const handlePlatformUpdate = (payload) => {
+            console.log('[useTeamManagement] Global Platform Update:', payload);
+            fetchTeams();
+        };
+
+        socketRef.current.on('team_update', handleTeamUpdate);
+        socketRef.current.on('platform_update', handlePlatformUpdate);
+
+        return () => {
+            socketRef.current?.off('team_update', handleTeamUpdate);
+            socketRef.current?.off('platform_update', handlePlatformUpdate);
+        };
+    }, [socketRef, socketConnected, fetchTeams, fetchActivities, currentTeamId, teams]);
+
     // ── Derived state ────────────────────────────────────────────────────────
     const currentTeam = useMemo(
         () => teams.find(t => t.id === currentTeamId) || teams[0],
         [teams, currentTeamId]
     );
-    const teamMembers = currentTeam?.members || [];
-    const isTeamOwner = currentTeam?.isOwner || false;
-    const isAdmin = user?.role === 'admin';
+    const isMasterAdmin = user?.role === 'master_admin';
+    const teamMembers = useMemo(() => {
+        if (!currentTeam) return [];
+        const members = [...(currentTeam.members || [])];
+        const owner = currentTeam.owner;
+
+        if (owner && !members.some(m => m._id === owner._id)) {
+            // Ensure owner is at the top and has a clear owner flag
+            members.unshift({
+                ...owner,
+                isOwner: true,
+                role: owner.role === 'team_member' ? 'team_head' : owner.role // Fallback to team_head if role is generic member
+            });
+        } else if (owner) {
+            // If already in members, mark them as owner for UI badges
+            return members.map(m => m._id === owner._id ? { ...m, isOwner: true } : m);
+        }
+        return members;
+    }, [currentTeam]);
+
+    const isTeamOwner = isMasterAdmin ? true : (currentTeam?.isOwner || false);
+    const isAdmin = user?.role === 'admin' || isMasterAdmin;
 
     const currentTeamRef = useRef(currentTeam);
     currentTeamRef.current = currentTeam;
@@ -196,7 +269,7 @@ export const useTeamManagement = () => {
         const completedTasks = filteredMembers.reduce((a, m) => a + m.tasksCompleted, 0);
 
         return {
-            adminCount: teamMembers.filter(m => m.role === 'admin').length,
+            adminCount: teamMembers.filter(m => m.role === 'admin' || m.role === 'team_head' || m.isOwner).length,
             memberCount: teamMembers.length,
             total: teamMembers.length,
             totalTasks,
@@ -367,7 +440,8 @@ export const useTeamManagement = () => {
 
     // ── Return ───────────────────────────────────────────────────────────────
     return {
-        user, isAdmin, isTeamOwner,
+        user, isAdmin, isTeamOwner, isMasterAdmin,
+        currentTeamId,
         inviteEmail, setInviteEmail,
         inviteName, setInviteName,
         searchTerm, setSearchTerm,

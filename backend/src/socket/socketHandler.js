@@ -23,9 +23,25 @@ export const setupSocket = (io) => {
                 onlineUsers.set(userId, socket.id);
                 console.log(`User ${userId} joined their personal room`);
 
+                // Stability Fix: Join Master Admin to global room for oversight
+                if (userData.role === 'master_admin') {
+                    socket.join('platform_admin');
+                    console.log(`Master Admin ${userId} joined platform oversight room`);
+                }
+
                 // Broadcast online users list to everyone
                 io.emit("onlineUsers", Array.from(onlineUsers.keys()));
                 socket.emit("connected");
+            }
+        });
+
+        // ── Team Dashboard Rooms ──────────────────────────────────────────
+        socket.on("setup_dashboard", ({ teamIds }) => {
+            if (Array.from(teamIds).length > 0) {
+                teamIds.forEach(id => {
+                    socket.join(`team_${id}`);
+                });
+                console.log(`Socket ${socket.id} joined ${teamIds.length} team rooms`);
             }
         });
 

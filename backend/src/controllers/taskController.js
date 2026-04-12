@@ -3,7 +3,7 @@ import Task from '../models/Task.js';
 import Team from '../models/Team.js';
 import Activity from '../models/Activity.js';
 
-import { createNotifications, createNotification } from '../utils/notificationService.js';
+import { createNotifications, createNotification, emitTeamUpdate } from '../utils/notificationService.js';
 
 // @desc    Get tasks (Visible to everyone in the team)
 // @route   GET /api/tasks
@@ -98,13 +98,8 @@ const setTask = asyncHandler(async (req, res) => {
         lastModifiedBy: req.user.id, // Fix: Issue #3 - Track creator as first modifier
     });
 
-    // Fix: Issue #1 - Log Activity
-    await Activity.create({
-        team: team._id,
-        teamOwner: team.owner,
-        text: `${req.user.name} created task "${task.title}"`,
-        type: 'task_create'
-    });
+    // Real-time Dashboard Update
+    emitTeamUpdate(req.app.get('socketio'), team._id, 'TASK_CREATE');
 
     const populatedTask = await Task.findById(task._id).populate('assignedTo', 'name email');
 
@@ -170,37 +165,8 @@ const updateTask = asyncHandler(async (req, res) => {
             req.body.completedAt = null;
         }
 
-        // Activity Logging Logic
-        if (teamOwner) {
-            // 1. Reassignment
-            if (req.body.assignedTo && task.assignedTo?.toString() !== req.body.assignedTo) {
-                // Need to fetch user names? Or just store IDs for now? 
-                // Activity model usually stores text. Ideally we want names.
-                // For simplicity/speed, we'll genericize for now or just say "reassigned task".
-                // Or fetch the new user's name?
-                await Activity.create({
-                    team: team._id,
-                    teamOwner: teamOwner,
-                    text: `${req.user.name} reassigned task "${task.title}"`,
-                    type: 'task_reassign'
-                });
-            }
-
-            // 2. Status Change
-            if (req.body.status && req.body.status !== task.status) {
-                const activityType = req.body.status === 'Done' ? 'task_complete' : 'task_status_change';
-                const text = req.body.status === 'Done'
-                    ? `${req.user.name} completed task "${task.title}"`
-                    : `${req.user.name} moved task "${task.title}" to ${req.body.status}`;
-
-                await Activity.create({
-                    team: team._id,
-                    teamOwner: teamOwner,
-                    text: text,
-                    type: activityType
-                });
-            }
-        }
+        // Real-time Dashboard Update
+        emitTeamUpdate(req.app.get('socketio'), team._id, 'TASK_UPDATE');
 
         const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
             new: true,
@@ -261,20 +227,8 @@ const updateTask = asyncHandler(async (req, res) => {
             updateData.completedAt = null;
         }
 
-        // Activity Logging
-        if (teamOwner && status !== task.status) {
-            const activityType = status === 'Done' ? 'task_complete' : 'task_status_change';
-            const text = status === 'Done'
-                ? `${req.user.name} completed task "${task.title}"`
-                : `${req.user.name} moved task "${task.title}" to ${status}`;
-
-            await Activity.create({
-                team: team._id,
-                teamOwner: teamOwner,
-                text: text,
-                type: activityType
-            });
-        }
+        // Real-time Dashboard Update
+        emitTeamUpdate(req.app.get('socketio'), team._id, 'TASK_UPDATE');
 
         const updatedTask = await Task.findByIdAndUpdate(req.params.id, updateData, {
             new: true,
@@ -334,29 +288,8 @@ const deleteTask = asyncHandler(async (req, res) => {
 
     const team = await Team.findById(task.team);
     if (team) {
-        // Activity Audit
-        await Activity.create({
-            team: team._id,
-            teamOwner: team.owner,
-            text: `${req.user.name} deleted task "${task.title}"`,
-            type: 'task_delete'
-        });
-
-        // Notify Team
-        const io = req.app.get('socketio');
-        const teamMembers = [...team.members, team.owner]
-            .filter(id => id.toString() !== req.user.id)
-            .map(id => id.toString());
-
-        if (teamMembers.length > 0) {
-            await createNotifications(teamMembers, {
-                sender: req.user.id,
-                title: 'Task Removed',
-                description: `${req.user.name} deleted task "${task.title}"`,
-                type: 'task_updated',
-                link: '/kanban'
-            }, io);
-        }
+        // Real-time Dashboard Update
+        emitTeamUpdate(req.app.get('socketio'), team._id, 'TASK_DELETE');
     }
 
     await task.deleteOne();
