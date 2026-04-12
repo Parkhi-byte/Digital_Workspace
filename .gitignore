@@ -1,0 +1,30 @@
+# Dependency directories
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.vercel
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor settings
+.vscode/
+.idea/
+.DS_Store
+
+# Misc
+.eslintcache
+coverage/
+.temp/
+*.swp
+*.bak

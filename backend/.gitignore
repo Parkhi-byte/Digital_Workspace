@@ -23,4 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
-uploads/
+
+# Project specific
+scratch/
+uploads/*
+!uploads/.gitkeep
