@@ -14,14 +14,19 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [adminUser, setAdminUser] = useState(null); // The original admin user
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
   useEffect(() => {
     // Load user from localStorage on mount
     const storedUser = localStorage.getItem('user');
+    const storedAdmin = localStorage.getItem('admin_user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
+    }
+    if (storedAdmin) {
+      setAdminUser(JSON.parse(storedAdmin));
     }
     setLoading(false);
   }, []);
@@ -82,11 +87,60 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    setAdminUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('admin_user');
     localStorage.removeItem('aurora_team_cache');
     // Clear ALL React Query cache so the next user gets fresh data.
     // Without this, a team_head's cached dashboard (with teams array) bleeds
     // into the team_member's session and causes the "no team" screen.
+    queryClient.clear();
+  };
+
+  const impersonate = async (targetUserId) => {
+    try {
+      const response = await fetch(`/api/admin/impersonate/${targetUserId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Save current user as adminUser (the impersonator)
+        setAdminUser(user);
+        localStorage.setItem('admin_user', JSON.stringify(user));
+
+        // Switch to target user
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+        
+        // Clear cache so we see the new user's actual data
+        queryClient.clear();
+        return { success: true };
+      } else {
+        return { success: false, error: data.message || 'Impersonation failed' };
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' };
+    }
+  };
+
+  const stopImpersonating = () => {
+    if (!adminUser) return;
+
+    // Restore admin user
+    setUser(adminUser);
+    localStorage.setItem('user', JSON.stringify(adminUser));
+
+    // Clear impersonator state
+    setAdminUser(null);
+    localStorage.removeItem('admin_user');
+
+    // Clear cache to return to admin view
     queryClient.clear();
   };
 
@@ -124,10 +178,13 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    adminUser,
     loading,
     login,
     signup,
     logout,
+    impersonate,
+    stopImpersonating,
     addTeamMember,
     removeTeamMember,
     isMasterAdmin,

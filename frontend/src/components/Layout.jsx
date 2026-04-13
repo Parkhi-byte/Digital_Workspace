@@ -4,10 +4,11 @@ import { Sparkles, Users, Info, CreditCard, MessageCircle, Video, FileText, Kanb
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
+import ImpersonationBanner from './masterAdmin/ImpersonationBanner';
 const VideoCall = React.lazy(() => import('./VideoCall/VideoCall'));
 
 const Layout = ({ children }) => {
-  const { user } = useAuth();
+  const { user, adminUser } = useAuth();
   const { call, isCalling, callEnded, endCall, answerCall } = useChatContext();
   const location = useLocation();
 
@@ -27,7 +28,8 @@ const Layout = ({ children }) => {
   const shouldHideFooter = hiddenFooterRoutes.some(route => location.pathname.startsWith(route));
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pt-20">
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col ${adminUser ? 'pt-32 sm:pt-28' : 'pt-20'}`}>
+      <ImpersonationBanner />
       <Header />
       <main className="flex-1 flex flex-col">{children}</main>
 

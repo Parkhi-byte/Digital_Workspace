@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Crown, Ban, CheckCircle, Trash2, Edit2 } from 'lucide-react';
+import { Search, Crown, Ban, CheckCircle, Trash2, Edit2, ArrowLeftRight } from 'lucide-react';
 import UserEditModal from './UserEditModal';
 
 const UsersTab = ({ users, loadingUsers, mutations, currentUser }) => {
@@ -36,6 +36,12 @@ const UsersTab = ({ users, loadingUsers, mutations, currentUser }) => {
     const handleDeleteUser = (id, name) => {
         if (window.confirm(`Are you absolutely sure you want to delete user "${name}"? All their data will be removed.`)) {
             mutations.deleteUser.mutate(id);
+        }
+    };
+
+    const handleImpersonate = (userId) => {
+        if (window.confirm('Are you sure you want to enter Shadow Mode as this user? You will be able to see their full dashboard.')) {
+            mutations.impersonateUser.mutate(userId);
         }
     };
 
@@ -142,6 +148,14 @@ const UsersTab = ({ users, loadingUsers, mutations, currentUser }) => {
                                                 title={u.status !== 'suspended' ? "Suspend user" : "Reactivate user"}
                                             >
                                                 {u.status !== 'suspended' ? <Ban size={16} /> : <CheckCircle size={16} />}
+                                            </button>
+                                            <button
+                                                onClick={() => handleImpersonate(u._id)}
+                                                disabled={u._id === currentUser?._id || mutations.impersonateUser.isLoading}
+                                                className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors disabled:opacity-30"
+                                                title="Impersonate (Shadow Mode)"
+                                            >
+                                                <ArrowLeftRight size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteUser(u._id, u.name)}

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
 export const useMasterAdminData = () => {
-    const { user } = useAuth();
+    const { user, impersonate } = useAuth();
     const queryClient = useQueryClient();
 
     const headers = {
@@ -217,6 +217,23 @@ export const useMasterAdminData = () => {
         onError: (err) => toast.error('Update failed')
     });
 
+    const impersonateMutation = useMutation({
+        mutationFn: async (userId) => {
+            return impersonate(userId);
+        },
+        onSuccess: (result) => {
+            if (result.success) {
+                toast.success('Entering Shadow Mode...');
+                // Redirection will happen naturally as user state changes, 
+                // but we might want to force a redirect to home.
+                window.location.href = '/'; 
+            } else {
+                toast.error(result.error);
+            }
+        },
+        onError: (err) => toast.error('Impersonation failed')
+    });
+
     return {
         user,
         stats,
@@ -238,7 +255,8 @@ export const useMasterAdminData = () => {
             approveUser: approveUserMutation,
             rejectUser: rejectUserMutation,
             transferTeam: transferTeamMutation,
-            updateTeam: updateTeamMutation
+            updateTeam: updateTeamMutation,
+            impersonateUser: impersonateMutation
         }
     };
 };
