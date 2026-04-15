@@ -48,14 +48,21 @@ const ChatWindow = ({ activeChat, messages, message, setMessage, handleTyping, h
             toast.info('Group calls are coming soon!');
             return;
         }
-        // currentUser._id (MongoDB) or currentUser.id (some JWT payloads)
+        
         const myId = currentUser?._id || currentUser?.id;
-        const otherUser = chatsData[activeChat]?.users?.find(
-            u => (u._id || u.id) !== myId
-        );
+        const chatUsers = chatsData[activeChat]?.users || [];
+        
+        // Robust ID check to find the 'other' person
+        const otherUser = chatUsers.find(u => {
+            const uid = u._id || u.id;
+            return uid && uid.toString() !== myId?.toString();
+        });
+
         if (otherUser) {
-            handleStartCall(otherUser._id || otherUser.id, otherUser.name, isVideo);
+            const otherId = otherUser._id || otherUser.id;
+            handleStartCall(otherId, otherUser.name, isVideo);
         } else {
+            logger.warn('Could not identify remote user for call', { myId, chatUsers });
             toast.error('Could not identify the other user in this chat.');
         }
     };

@@ -94,10 +94,13 @@ export const useDirectCall = ({
     const getMedia = useCallback(async () => {
         setMediaError(null);
         try {
+            // Simplified constraints for better hardware compatibility
             const constraints = {
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                audio: true, // Start with basic true for widest compatibility
                 video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
             };
+            
+            logger.log('Requesting media with constraints:', constraints);
             const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             
             if (!isMountedRef.current) {
@@ -150,9 +153,14 @@ export const useDirectCall = ({
             peer.ontrack = (event) => {
                 if (!isMountedRef.current) return;
                 const remote = event.streams[0];
+                logger.log('Remote track received:', event.track.kind, 'Stream ID:', remote?.id);
                 setRemoteStream(remote);
                 if (userVideoRef.current && remote) {
-                    userVideoRef.current.srcObject = remote;
+                    if (userVideoRef.current.srcObject !== remote) {
+                        userVideoRef.current.srcObject = remote;
+                    }
+                    // Explicitly trigger play to ensure stream resumes after dynamic assignment
+                    userVideoRef.current.play().catch(e => logger.warn('Autoplay prevented or interrupted:', e));
                 }
             };
 
@@ -243,7 +251,10 @@ export const useDirectCall = ({
                 const peer = createPeer(mediaStream);
                 try {
                     setConnectionState('calling');
-                    const offer = await peer.createOffer();
+                    const offer = await peer.createOffer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: isVideoCall
+                    });
                     await peer.setLocalDescription(offer);
                     socket.emit('callUser', {
                         userToCall,
@@ -346,8 +357,10 @@ export const useDirectCall = ({
             if (!callerSignal) throw new Error("No incoming signal found");
             await peer.setRemoteDescription(new RTCSessionDescription(callerSignal));
             flushIceCandidates();
-
-            const answer = await peer.createAnswer();
+            const answer = await peer.createAnswer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: isVideoCall
+            });
             await peer.setLocalDescription(answer);
 
             socket.emit('answerCall', { signal: answer, to: callerId });
