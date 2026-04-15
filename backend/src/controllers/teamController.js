@@ -113,6 +113,15 @@ const getTeamMembers = asyncHandler(async (req, res) => {
         return res.json(result);
     }
 
+    // Fetch teams for non-admin users
+    const ownedTeams = await Team.find({ owner: req.user._id })
+        .populate('owner', 'name email role')
+        .populate('members', 'name email role');
+
+    const participatingTeams = await Team.find({ members: req.user._id })
+        .populate('owner', 'name email role')
+        .populate('members', 'name email role');
+
     const allMemberIds = new Set([req.user._id.toString()]);
     ownedTeams.forEach(t => t.members.filter(m => m).forEach(m => allMemberIds.add(m._id.toString())));
     participatingTeams.forEach(t => {

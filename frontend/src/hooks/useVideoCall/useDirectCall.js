@@ -167,14 +167,26 @@ export const useDirectCall = ({
             peer.onconnectionstatechange = () => {
                 if (!isMountedRef.current) return;
                 const state = peer.connectionState;
-                logger.log('Connection state:', state);
+                logger.log('Overall Connection state:', state);
                 setConnectionState(state);
                 if (state === 'connected' && !startTime) {
                     setStartTime(Date.now());
                 } else if (state === 'failed') {
                     logger.error('WebRTC connection failed');
-                    setMediaError('Connection failed to establish. This usually indicates a network or firewall blockage.');
+                    setMediaError('Connection failed to establish. This usually indicates a network or firewall blockage. A TURN server is likely required for this connection.');
                 }
+            };
+
+            peer.oniceconnectionstatechange = () => {
+                if (!isMountedRef.current) return;
+                logger.log('ICE Connection state:', peer.iceConnectionState);
+                if (peer.iceConnectionState === 'failed') {
+                    setConnectionState('failed');
+                }
+            };
+
+            peer.onicegatheringstatechange = () => {
+                logger.log('ICE Gathering state:', peer.iceGatheringState);
             };
 
             return peer;
@@ -264,13 +276,26 @@ export const useDirectCall = ({
 
     // Sync video refs when streams arrive
     useEffect(() => {
-        if (myVideoRef.current && stream) myVideoRef.current.srcObject = stream;
+        if (myVideoRef.current && stream) {
+            if (myVideoRef.current.srcObject !== stream) {
+                logger.log('Setting local stream to video element');
+                myVideoRef.current.srcObject = stream;
+            }
+        }
     }, [stream]);
 
     // Sync remote streams when they arrive
     useEffect(() => {
         if (userVideoRef.current && remoteStream) {
-            userVideoRef.current.srcObject = remoteStream;
+            if (userVideoRef.current.srcObject !== remoteStream) {
+                logger.log('Setting remote stream to video element');
+                userVideoRef.current.srcObject = remoteStream;
+                userVideoRef.current.play().catch(e => {
+                    if (e.name !== 'AbortError') {
+                        logger.error('Autoplay failed:', e);
+                    }
+                });
+            }
         }
     }, [remoteStream]);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, PhoneOff, Phone,
     Monitor, MonitorOff, Maximize2, Minimize2, X
@@ -147,13 +147,7 @@ const ActiveCall = ({
                     {/* Remote Media Element (handles both video and audio) */}
                     {callAccepted && remoteStream && (
                         <video
-                            ref={(node) => {
-                                userVideoRef.current = node;
-                                if (node && node.srcObject !== remoteStream) {
-                                    node.srcObject = remoteStream;
-                                    node.play().catch(e => console.error("Autoplay failed:", e));
-                                }
-                            }}
+                            ref={userVideoRef}
                             autoPlay
                             playsInline
                             className={isVideoCall ? "absolute inset-0 w-full h-full object-cover" : "opacity-0 absolute w-px h-px pointer-events-none"}
@@ -229,12 +223,7 @@ const ActiveCall = ({
                                 </div>
                             ) : (
                                 <video
-                                    ref={(node) => {
-                                        myVideoRef.current = node;
-                                        if (node && stream && node.srcObject !== stream) {
-                                            node.srcObject = stream;
-                                        }
-                                    }}
+                                    ref={myVideoRef}
                                     autoPlay
                                     playsInline
                                     muted
