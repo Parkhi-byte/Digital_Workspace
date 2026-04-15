@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useKanban } from '../hooks/useKanban/useKanban';
+import { useChatContext } from '../context/ChatContext';
 import KanbanColumn from '../components/Kanban/KanbanColumn';
 import TaskModal from '../components/Kanban/TaskModal';
 import { Doughnut, Bar } from 'react-chartjs-2';
@@ -12,10 +13,31 @@ const Kanban = () => {
   const {
     user, loading, isModalOpen, editingTask, showAnalytics, setShowAnalytics, searchQuery, setSearchQuery, filterPriority, setFilterPriority, formData, setFormData,
     groupedTasks, stats, priorityData, statusData, teamMembers, teams, selectedTeam, setSelectedTeam,
-    onDragEnd, handleDeleteTask, openModal, closeModal, handleSaveTask
+    onDragEnd, handleDeleteTask, openModal, closeModal, handleSaveTask, fetchData
   } = useKanban();
 
   const location = useLocation();
+  const { socketRef, socketConnected } = useChatContext();
+
+  // Real-time synchronization
+  useEffect(() => {
+    if (!socketRef?.current || !socketConnected) return;
+
+    const handleUpdate = (payload) => {
+      // Refresh if it's a platform update, or matches our current team, or we are in "All Teams" view
+      if (!payload.teamId || !selectedTeam || payload.teamId === selectedTeam.id) {
+        fetchData(selectedTeam?.id || 'all');
+      }
+    };
+
+    socketRef.current.on('team_update', handleUpdate);
+    socketRef.current.on('platform_update', handleUpdate);
+
+    return () => {
+      socketRef.current?.off('team_update', handleUpdate);
+      socketRef.current?.off('platform_update', handleUpdate);
+    };
+  }, [socketRef, socketConnected, fetchData, selectedTeam]);
 
   useEffect(() => {
     if (location.state?.openNewTask) {
@@ -67,19 +89,25 @@ const Kanban = () => {
               />
             </div>
 
-            {/* Team Selector */}
-            <select
-              value={selectedTeam?.id || ''}
-              onChange={(e) => {
-                const team = teams.find(t => t.id === e.target.value);
-                setSelectedTeam(team);
-              }}
-              className="pl-3 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm font-medium cursor-pointer outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {teams.map(team => (
-                <option key={team.id} value={team.id}>{team.name}</option>
-              ))}
-            </select>
+            {/* Team Selector styling update */}
+            <div className="relative group min-w-[160px]">
+              <select
+                value={selectedTeam?.id || ''}
+                onChange={(e) => {
+                  const team = teams.find(t => t.id === e.target.value);
+                  setSelectedTeam(team);
+                }}
+                className="appearance-none w-full pl-10 pr-10 py-2 bg-white dark:bg-gray-800 border-2 border-transparent hover:border-blue-500/30 rounded-xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 cursor-pointer shadow-sm transition-all text-gray-700 dark:text-gray-300"
+              >
+                {teams.map(team => (
+                  <option key={team.id} value={team.id}>👥 {team.name}</option>
+                ))}
+              </select>
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500 pointer-events-none" size={16} />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-blue-500 transition-colors">
+                <ChevronDown size={14} />
+              </div>
+            </div>
 
             {/* Priority Filter */}
             <select

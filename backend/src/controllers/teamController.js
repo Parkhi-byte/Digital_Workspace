@@ -49,8 +49,9 @@ const getBatchMemberStats = async (memberIds) => {
 // @route   GET /api/team
 const getTeamMembers = asyncHandler(async (req, res) => {
     const ownedTeamsCount = await Team.countDocuments({ owner: req.user._id });
+    const isMasterAdmin = req.user.role === 'master_admin';
 
-    if (ownedTeamsCount === 0 && (req.user.role === 'team_head' || req.user.role === 'admin')) {
+    if (!isMasterAdmin && ownedTeamsCount === 0 && (req.user.role === 'team_head' || req.user.role === 'admin')) {
         const user = await User.findById(req.user._id).select('teamMembers teamName teamDescription');
         if (user) {
             await Team.create({
@@ -62,12 +63,55 @@ const getTeamMembers = asyncHandler(async (req, res) => {
         }
     }
 
-    const [ownedTeams, participatingTeams] = await Promise.all([
-        Team.find({ owner: req.user._id }).populate('members', 'name email role'),
-        Team.find({ members: req.user._id, owner: { $ne: req.user._id } })
+    // For Master Admin, fetch EVERYTHING
+    if (isMasterAdmin) {
+        const allTeams = await Team.find({})
             .populate('owner', 'name email role')
             .populate('members', 'name email role')
-    ]);
+            .sort({ createdAt: -1 });
+
+        const allMemberIds = new Set();
+        allTeams.forEach(t => {
+            if (t.owner?._id) allMemberIds.add(t.owner._id.toString());
+            t.members.filter(m => m).forEach(m => allMemberIds.add(m._id.toString()));
+        });
+
+        const statsMap = await getBatchMemberStats([...allMemberIds]);
+
+        const result = allTeams.map(team => {
+            const membersWithStats = team.members.filter(m => m).map(m => ({
+                _id: m._id,
+                name: m.name,
+                email: m.email,
+                role: m.role,
+                tasksAssigned: statsMap[m._id.toString()]?.tasksAssigned || 0,
+                tasksCompleted: statsMap[m._id.toString()]?.tasksCompleted || 0,
+            }));
+
+            if (team.owner?._id && !membersWithStats.some(m => m._id.toString() === team.owner._id.toString())) {
+                membersWithStats.unshift({
+                    _id: team.owner._id,
+                    name: team.owner.name,
+                    email: team.owner.email,
+                    role: team.owner.role || 'team_head',
+                    tasksAssigned: statsMap[team.owner._id.toString()]?.tasksAssigned || 0,
+                    tasksCompleted: statsMap[team.owner._id.toString()]?.tasksCompleted || 0,
+                    isOwner: true
+                });
+            }
+
+            return {
+                id: team._id.toString(),
+                name: team.name,
+                description: team.description,
+                members: membersWithStats,
+                isOwner: team.owner?._id?.toString() === req.user._id.toString(),
+                ownerName: team.owner?._id?.toString() === req.user._id.toString() ? 'You' : (team.owner?.name || 'Unknown')
+            };
+        });
+
+        return res.json(result);
+    }
 
     const allMemberIds = new Set([req.user._id.toString()]);
     ownedTeams.forEach(t => t.members.filter(m => m).forEach(m => allMemberIds.add(m._id.toString())));
@@ -174,9 +218,17 @@ const addTeamMember = asyncHandler(async (req, res) => {
         throw new Error('Please provide an email');
     }
 
-    let targetTeam = teamId 
-        ? await Team.findOne({ _id: teamId, owner: req.user._id })
-        : await Team.findOne({ owner: req.user._id });
+    const isMaster = req.user.role === 'master_admin';
+    let targetTeam;
+
+    if (teamId) {
+        // If master, bypass owner check
+        targetTeam = isMaster 
+            ? await Team.findById(teamId)
+            : await Team.findOne({ _id: teamId, owner: req.user._id });
+    } else {
+        targetTeam = await Team.findOne({ owner: req.user._id });
+    }
 
     if (!targetTeam && !teamId) {
         targetTeam = await Team.create({
@@ -263,7 +315,10 @@ const addTeamMember = asyncHandler(async (req, res) => {
 // @route   DELETE /api/team/:teamId/member/:memberId
 const removeTeamMember = asyncHandler(async (req, res) => {
     const { teamId, memberId } = req.params;
-    const team = await Team.findOne({ _id: teamId, owner: req.user._id });
+    const isMaster = req.user.role === 'master_admin';
+    const team = isMaster 
+        ? await Team.findById(teamId)
+        : await Team.findOne({ _id: teamId, owner: req.user._id });
 
     if (!team) {
         res.status(404);
@@ -303,8 +358,10 @@ const removeTeamMember = asyncHandler(async (req, res) => {
 // @route   PUT /api/team
 const updateTeamDetails = asyncHandler(async (req, res) => {
     const { name, description, teamId } = req.body;
+    const isMaster = req.user.role === 'master_admin';
+    
     const team = teamId 
-        ? await Team.findOne({ _id: teamId, owner: req.user._id })
+        ? (isMaster ? await Team.findById(teamId) : await Team.findOne({ _id: teamId, owner: req.user._id }))
         : await Team.findOne({ owner: req.user._id });
 
     if (!team) {
@@ -362,7 +419,10 @@ const getTeamActivity = asyncHandler(async (req, res) => {
 // @route   DELETE /api/team/:teamId
 const deleteTeam = asyncHandler(async (req, res) => {
     const { teamId } = req.params;
-    const team = await Team.findOne({ _id: teamId, owner: req.user._id });
+    const isMaster = req.user.role === 'master_admin';
+    const team = isMaster 
+        ? await Team.findById(teamId)
+        : await Team.findOne({ _id: teamId, owner: req.user._id });
 
     if (!team) {
         res.status(404);

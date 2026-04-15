@@ -9,24 +9,46 @@ import { createNotifications, createNotification, emitTeamUpdate } from '../util
 // @route   GET /api/tasks
 // @access  Private
 const getTasks = asyncHandler(async (req, res) => {
-    // Find teams where user is owner or member
-    const teams = await Team.find({
-        $or: [
-            { owner: req.user.id },
-            { members: req.user.id }
-        ]
-    });
+    const { teamId } = req.query;
+    let query = {};
 
-    const teamIds = teams.map(t => t._id);
+    if (req.user.role === 'master_admin') {
+        if (teamId && teamId !== 'all') {
+            query = { team: teamId };
+        } else {
+            // All tasks globally
+            query = {};
+        }
+    } else {
+        // Find teams where user is owner or member
+        const teams = await Team.find({
+            $or: [
+                { owner: req.user.id },
+                { members: req.user.id }
+            ]
+        });
 
-    // Fetch tasks belonging to these teams
-    // Also fetch legacy tasks created by this user (for backward compatibility)
-    const tasks = await Task.find({
-        $or: [
-            { team: { $in: teamIds } },
-            { user: req.user.id } // Legacy support
-        ]
-    })
+        const teamIds = teams.map(t => t._id.toString());
+
+        if (teamId && teamId !== 'all') {
+            // Ensure the non-admin is actually in the requested team
+            if (!teamIds.includes(teamId)) {
+                res.status(401);
+                throw new Error('Not authorized to view this team board');
+            }
+            query = { team: teamId };
+        } else {
+            // Fetch tasks belonging to these teams + legacy tasks
+            query = {
+                $or: [
+                    { team: { $in: teamIds } },
+                    { user: req.user.id } // Legacy support
+                ]
+            };
+        }
+    }
+
+    const tasks = await Task.find(query)
         .populate('assignedTo', 'name email')
         .populate('completedBy', 'name email')
         .populate('lastModifiedBy', 'name email')
@@ -44,20 +66,18 @@ const setTask = asyncHandler(async (req, res) => {
         throw new Error('Please add a title field');
     }
 
-    // Restrict creation to Team Head or Admin
+    const isMaster = req.user.role === 'master_admin';
+
+    // Restrict creation to Team Head, Admin or Master Admin
     if (req.user.role === 'team_member') {
         res.status(403);
         throw new Error('Only Team Heads can create tasks');
     }
 
-    // Require teamId
-    // If user has old frontend code, they might not send teamId. 
-    // We should try to gracefully handle it or force it.
-    // Let's look for req.body.teamId
     let teamId = req.body.teamId;
 
     if (!teamId) {
-        // Fallback: If no teamId provided, try to find the FIRST team owned by user (Legacy behavior)
+        // Fallback for non-master admins
         const team = await Team.findOne({ owner: req.user.id });
         if (!team) {
             res.status(404);
@@ -66,18 +86,22 @@ const setTask = asyncHandler(async (req, res) => {
         teamId = team._id;
     }
 
-    // Verify ownership of the team
-    const team = await Team.findOne({ _id: teamId, owner: req.user.id });
+    // Verify ownership or master status
+    const team = await Team.findById(teamId);
     if (!team) {
+        res.status(404);
+        throw new Error('Team not found');
+    }
+
+    if (!isMaster && team.owner.toString() !== req.user.id.toString()) {
         res.status(403);
         throw new Error('You can only create tasks for teams you own');
     }
 
     // If assigning to a user, verify they are in this team
     if (req.body.assignedTo) {
-        // Fix: Check if member OR owner (Issues #2)
-        const isMember = team.members.includes(req.body.assignedTo);
-        const isOwner = team.owner.toString() === req.body.assignedTo;
+        const isMember = team.members.some(m => m.toString() === req.body.assignedTo.toString());
+        const isOwner = team.owner.toString() === req.body.assignedTo.toString();
 
         if (!isMember && !isOwner) {
             res.status(400);
@@ -95,7 +119,7 @@ const setTask = asyncHandler(async (req, res) => {
         team: team._id,
         assignedTo: req.body.assignedTo || null,
         dueDate: req.body.dueDate || null,
-        lastModifiedBy: req.user.id, // Fix: Issue #3 - Track creator as first modifier
+        lastModifiedBy: req.user.id,
     });
 
     // Real-time Dashboard Update
@@ -147,9 +171,10 @@ const updateTask = asyncHandler(async (req, res) => {
     const isCreator = task.user.toString() === req.user.id;
     const isAssigned = task.assignedTo && task.assignedTo.toString() === req.user.id;
     const isHead = req.user.role === 'team_head' || req.user.role === 'admin';
+    const isMaster = req.user.role === 'master_admin';
 
-    // 1. Team Head/Admin/Creator: Can update EVERYTHING
-    if (isHead || isCreator) {
+    // 1. Team Head/Admin/Creator/Master: Can update EVERYTHING
+    if (isHead || isCreator || isMaster) {
         // Add audit tracking
         req.body.lastModifiedBy = req.user.id;
 
@@ -277,13 +302,14 @@ const deleteTask = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    // Only Creator (Head) or Admin can delete
+    // Only Creator (Head), Admin, or Master Admin can delete
     const isCreator = task.user.toString() === req.user.id;
     const isHead = req.user.role === 'team_head' || req.user.role === 'admin';
+    const isMaster = req.user.role === 'master_admin';
 
-    if (!isCreator && !isHead) {
+    if (!isCreator && !isHead && !isMaster) {
         res.status(403);
-        throw new Error('Only Team Heads can delete tasks');
+        throw new Error('Only Team Heads or Master Admins can delete tasks');
     }
 
     const team = await Team.findById(task.team);

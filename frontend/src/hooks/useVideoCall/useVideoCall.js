@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChatContext } from '../../context/ChatContext';
 import { logger } from '../../utils/logger';
+import { ICE_SERVERS } from '../../config/webrtcConfig';
 
 export const useVideoCall = () => {
     const { user, socketRef, socketConnected } = useChatContext();
@@ -428,17 +429,7 @@ export const useVideoCall = () => {
 
         logger.log(`Creating ${isInitiator ? 'initiator' : 'receiver'} peer connection for:`, userName);
 
-        const peer = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' },
-                { urls: 'stun:stun4.l.google.com:19302' },
-                { urls: 'stun:global.stun.twilio.com:3478' }
-            ],
-            iceCandidatePoolSize: 10
-        });
+        const peer = new RTCPeerConnection(ICE_SERVERS);
 
         peersRef.current.set(userId, peer);
         initiatorsRef.current.set(userId, isInitiator);

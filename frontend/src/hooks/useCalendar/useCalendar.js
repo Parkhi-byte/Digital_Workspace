@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
@@ -8,9 +7,10 @@ export const useCalendar = () => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchEvents = useCallback(async () => {
+    const fetchEvents = useCallback(async (teamId = 'all') => {
         try {
-            const res = await fetch('/api/events', {
+            const teamQuery = teamId ? `?teamId=${teamId}` : '';
+            const res = await fetch(`/api/events${teamQuery}`, {
                 headers: {
                     'Authorization': `Bearer ${user.token}`
                 }
@@ -43,12 +43,12 @@ export const useCalendar = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${user.token}`
                 },
-                body: JSON.stringify({ ...eventData, teamId })
+                body: JSON.stringify({ ...eventData, teamId: teamId || eventData.teamId })
             });
 
             if (res.ok) {
                 toast.success('Event created');
-                fetchEvents();
+                // We don't refresh here, the page will refresh via socket or manual call
                 return true;
             } else {
                 toast.error('Failed to create event');
@@ -74,7 +74,6 @@ export const useCalendar = () => {
 
             if (res.ok) {
                 toast.success('Event updated');
-                fetchEvents();
                 return true;
             } else {
                 toast.error('Failed to update event');
@@ -98,7 +97,6 @@ export const useCalendar = () => {
 
             if (res.ok) {
                 toast.success('Event deleted');
-                fetchEvents();
                 return true;
             } else {
                 toast.error('Failed to delete event');
@@ -111,6 +109,7 @@ export const useCalendar = () => {
         }
     };
 
+    // Initial load
     useEffect(() => {
         if (user) {
             fetchEvents();

@@ -1,93 +1,68 @@
 import express from 'express';
 import { protect, masterAdmin } from '../middleware/authMiddleware.js';
-import {
-    getAllUsersAdmin,
-    getAllTeamsAdmin,
-    updateUserRole,
-    updateUserAdmin,
-    deleteUserAdmin,
-    deleteTeamAdmin,
-    addMemberToTeamAdmin,
-    removeMemberFromTeamAdmin,
-    getPlatformStats,
-    getPendingUsers,
-    approveUser,
-    rejectUser,
-    toggleUserSuspension,
-    transferTeamOwnership,
-    createTeamAdmin,
-    updateTeamDetailsAdmin,
-    getAuditLogs,
-    impersonateUser,
-    getUserTimeline,
-    bulkUpdateUserStatus,
-    sendPlatformBroadcast
-} from '../controllers/adminController.js';
+import * as userAdmin from '../controllers/admin/userAdminController.js';
+import * as teamAdmin from '../controllers/admin/teamAdminController.js';
+import * as systemAdmin from '../controllers/admin/systemAdminController.js';
 
 const router = express.Router();
 
 router.use(protect, masterAdmin);
 
-// Impersonation
 router.route('/impersonate/:userId')
-    .post(impersonateUser);
+    .post(userAdmin.impersonateUser);
 
-// Users Management
 router.route('/users')
-    .get(getAllUsersAdmin);
+    .get(userAdmin.getAllUsersAdmin);
 
 router.route('/users/pending')
-    .get(getPendingUsers);
+    .get(userAdmin.getPendingUsers);
 
 router.route('/users/bulk-status')
-    .patch(bulkUpdateUserStatus);
+    .patch(userAdmin.bulkUpdateUserStatus);
 
 router.route('/users/:userId')
-    .put(updateUserAdmin)
-    .delete(deleteUserAdmin);
+    .put(userAdmin.updateUserAdmin)
+    .delete(userAdmin.deleteUserAdmin);
 
 router.route('/users/:userId/role')
-    .patch(updateUserRole);
+    .patch(userAdmin.updateUserRole);
 
 router.route('/users/:userId/suspend')
-    .patch(toggleUserSuspension);
+    .patch(userAdmin.toggleUserSuspension);
 
 router.route('/users/:userId/approve')
-    .post(approveUser);
+    .post(userAdmin.approveUser);
 
 router.route('/users/:userId/reject')
-    .delete(rejectUser);
+    .delete(userAdmin.rejectUser);
 
 router.route('/users/:userId/timeline')
-    .get(getUserTimeline);
+    .get(userAdmin.getUserTimeline);
 
-// Teams Management
 router.route('/teams')
-    .get(getAllTeamsAdmin)
-    .post(createTeamAdmin);
+    .get(teamAdmin.getAllTeamsAdmin)
+    .post(teamAdmin.createTeamAdmin);
 
 router.route('/teams/:teamId')
-    .put(updateTeamDetailsAdmin)
-    .delete(deleteTeamAdmin);
+    .put(teamAdmin.updateTeamDetailsAdmin)
+    .delete(teamAdmin.deleteTeamAdmin);
 
 router.route('/teams/:teamId/transfer')
-    .patch(transferTeamOwnership);
+    .patch(teamAdmin.transferTeamOwnership);
 
 router.route('/teams/:teamId/members')
-    .post(addMemberToTeamAdmin);
+    .post(teamAdmin.addMemberToTeamAdmin);
 
 router.route('/teams/:teamId/members/:memberId')
-    .delete(removeMemberFromTeamAdmin);
+    .delete(teamAdmin.removeMemberFromTeamAdmin);
 
-// Platform Stats & Logs
 router.route('/audit-logs')
-    .get(getAuditLogs);
+    .get(systemAdmin.getAuditLogs);
 
 router.route('/stats')
-    .get(getPlatformStats);
+    .get(systemAdmin.getPlatformStats);
 
-// Announcements
 router.route('/broadcast')
-    .post(sendPlatformBroadcast);
+    .post(systemAdmin.sendPlatformBroadcast);
 
 export default router;

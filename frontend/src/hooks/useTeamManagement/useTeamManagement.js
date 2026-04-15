@@ -122,6 +122,11 @@ export const useTeamManagement = () => {
             setTeams(fetchedTeams);
 
             setCurrentTeamId(prev => {
+                const params = new URLSearchParams(window.location.search);
+                const queryId = params.get('teamId');
+                
+                if (queryId && fetchedTeams.some(t => t.id === queryId)) return queryId;
+
                 const isMaster = user?.role === 'master_admin';
                 if (isMaster && !prev) return null; // Let master admin see the grid first
                 

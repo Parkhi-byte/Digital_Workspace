@@ -2,7 +2,9 @@ import React from 'react';
 import { useDocumentShare } from '../hooks/useDocumentShare/useDocumentShare';
 import DocumentTable from '../components/DocumentShare/DocumentTable';
 import CreateFolderModal from '../components/DocumentShare/CreateFolderModal';
-import { Upload, Search, Folder, Clock, Plus, Trash2 } from 'lucide-react';
+import { Upload, Search, Folder, Clock, Plus, Trash2, ChevronLeft } from 'lucide-react';
+import { useChatContext } from '../context/ChatContext';
+import { useEffect } from 'react';
 
 const DocumentShare = () => {
   const fileInputRef = React.useRef(null);
@@ -25,11 +27,33 @@ const DocumentShare = () => {
     handleDownload,
     handleShare,
     getFileIcon,
+    fetchDocuments,
     filteredDocs,
     filteredFolders
   } = useDocumentShare();
 
+  const { socketRef, socketConnected } = useChatContext();
   const [isCreateFolderOpen, setIsCreateFolderOpen] = React.useState(false);
+
+  // Real-time synchronization
+  useEffect(() => {
+    if (!socketRef?.current || !socketConnected || !selectedTeam) return;
+
+    const handleUpdate = (payload) => {
+      // Refresh if it's a platform update or matches our current team
+      if (!payload.teamId || payload.teamId === selectedTeam.id) {
+        fetchDocuments();
+      }
+    };
+
+    socketRef.current.on('team_update', handleUpdate);
+    socketRef.current.on('platform_update', handleUpdate);
+
+    return () => {
+      socketRef.current?.off('team_update', handleUpdate);
+      socketRef.current?.off('platform_update', handleUpdate);
+    };
+  }, [socketRef, socketConnected, fetchDocuments, selectedTeam]);
 
   const onFileSelect = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -104,15 +128,22 @@ const DocumentShare = () => {
         <div className="flex items-center mb-6 text-sm text-gray-600 dark:text-gray-400">
           <button
             onClick={() => setCurrentFolder(null)}
-            className={`hover:text-aurora-600 ${!currentFolder ? 'font-bold text-gray-900 dark:text-white' : ''}`}
+            className={`hover:text-aurora-600 transition-colors ${!currentFolder ? 'font-bold text-aurora-600' : 'text-gray-500'}`}
           >
             Files
           </button>
           {currentFolder && (
-            <>
-              <span className="mx-2">/</span>
-              <span className="font-bold text-gray-900 dark:text-white">{currentFolder.name}</span>
-            </>
+            <div className="flex items-center">
+              <span className="mx-2 text-gray-400">/</span>
+              <span className="font-bold text-aurora-600 truncate max-w-[200px]">{currentFolder.name}</span>
+              <button 
+                onClick={() => setCurrentFolder(null)} 
+                className="ml-2 p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-400"
+                title="Go Back"
+              >
+                <ChevronLeft size={14} />
+              </button>
+            </div>
           )}
         </div>
 

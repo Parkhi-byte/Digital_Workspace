@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Filter, Calendar as CalendarIcon, ChevronRight } from 'lucide-react';
+import { Clock, Filter, Calendar as CalendarIcon, ChevronRight, Globe } from 'lucide-react';
 import moment from 'moment';
 
 const CalendarSidebar = ({ events, onSelectEvent, activeFilters, onFilterChange }) => {
@@ -81,6 +81,11 @@ const CalendarSidebar = ({ events, onSelectEvent, activeFilters, onFilterChange 
                                         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                                             {moment(evt.start).format('h:mm A')}
                                         </span>
+                                        {evt.isGlobal && (
+                                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-[9px] font-black text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50 uppercase tracking-tighter">
+                                                <Globe size={8} /> Global
+                                            </span>
+                                        )}
                                     </div>
                                     <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate leading-snug">
                                         {evt.title || 'Untitled Event'}

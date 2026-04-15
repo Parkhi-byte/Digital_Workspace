@@ -46,21 +46,16 @@ export const useNotifications = () => {
     const [pages, setPages] = useState(1);
     const [total, setTotal] = useState(0);
 
-    // Pull stable primitives from context to avoid triggering re-renders
     const { chatsData, setChatsData, setActiveChat, socketRef, socketConnected, user } = useChatContext();
     const navigate = useNavigate();
 
-    // Stable token reference — a string, not an object
     const token = user?.token || (() => {
         try { return JSON.parse(localStorage.getItem('user'))?.token; } catch { return null; }
     })();
 
-    // Keep a stable ref to the token so fetch callbacks don't re-create on every render
     const tokenRef = useRef(token);
     useEffect(() => { tokenRef.current = token; }, [token]);
 
-    // ─── Fetch notifications from API ─────────────────────────────────────────
-    // Depend on `filter` only (stable string). Use tokenRef to avoid re-creating the callback.
     const fetchNotifications = useCallback(async (activeFilter) => {
         const tok = tokenRef.current;
         if (!tok) return;
@@ -90,15 +85,12 @@ export const useNotifications = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []); // Empty deps — uses tokenRef so never re-creates
+    }, []);
 
-    // Re-fetch whenever the filter changes
     useEffect(() => {
         fetchNotifications(filter);
     }, [filter, fetchNotifications]);
 
-    // ─── Real-time + cross-tab socket listeners ───────────────────────────────
-    // Depend on `socketConnected` (boolean) — when socket reconnects, listeners re-attach
     useEffect(() => {
         const socket = socketRef.current;
         if (!socket || !socketConnected) return;
@@ -118,7 +110,6 @@ export const useNotifications = () => {
             });
         };
 
-        // Sync read-status changes made in other tabs/devices
         const handleStatusSync = ({ id, allRead, read }) => {
             if (allRead) {
                 setDbNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -136,7 +127,6 @@ export const useNotifications = () => {
         };
     }, [socketConnected, socketRef]);
 
-    // ─── Chat-derived notifications ───────────────────────────────────────────
     const chatNotifications = useMemo(() => {
         if (!chatsData) return [];
         return Object.values(chatsData)
@@ -160,7 +150,6 @@ export const useNotifications = () => {
             });
     }, [chatsData]);
 
-    // Combined sorted list
     const notifications = useMemo(() => {
         return [...chatNotifications, ...dbNotifications].sort((a, b) => {
             const timeA = a.fullTime || a.createdAt || 0;
@@ -169,7 +158,6 @@ export const useNotifications = () => {
         });
     }, [chatNotifications, dbNotifications]);
 
-    // ─── Actions ──────────────────────────────────────────────────────────────
     const markAsRead = useCallback(async (id) => {
         if (typeof id === 'string' && id.startsWith('chat-')) {
             const chatId = id.replace('chat-', '');
@@ -200,9 +188,7 @@ export const useNotifications = () => {
                 headers: { 'Authorization': `Bearer ${tok}` }
             });
             if (res.ok) {
-                // Clear DB notifications
                 setDbNotifications(prev => prev.map(n => ({ ...n, read: true })));
-                // Also clear all chat unread counts so chatNotifications disappears
                 setChatsData(prev => {
                     const updated = {};
                     for (const [key, chat] of Object.entries(prev)) {
@@ -233,7 +219,6 @@ export const useNotifications = () => {
         }
     }, []);
 
-    // ─── Filtered view ────────────────────────────────────────────────────────
     const filteredNotifications = useMemo(() => {
         let filteredChats = chatNotifications;
 
@@ -245,7 +230,6 @@ export const useNotifications = () => {
             filteredChats = chatNotifications;
         }
 
-        // dbNotifications are already server-filtered
         return [...filteredChats, ...dbNotifications].sort((a, b) => {
             const timeA = a.fullTime || a.createdAt || 0;
             const timeB = b.fullTime || b.createdAt || 0;

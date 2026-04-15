@@ -116,7 +116,7 @@ const Dashboard = () => {
                 completedTasks: platformStats.completedTasks,
                 completionRate,
                 totalDocuments: platformStats.totalDocuments,
-                totalMembers: platformStats.totalUsers,
+                totalMembers: platformStats.teamMembers,
                 totalTeams: platformStats.totalTeams,
                 inProgressTasks: platformStats.totalTasks - platformStats.completedTasks,
                 upcomingEvents,

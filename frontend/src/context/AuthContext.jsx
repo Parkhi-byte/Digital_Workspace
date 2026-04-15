@@ -14,12 +14,11 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [adminUser, setAdminUser] = useState(null); // The original admin user
+  const [adminUser, setAdminUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Load user from localStorage on mount
     const storedUser = localStorage.getItem('user');
     const storedAdmin = localStorage.getItem('admin_user');
     if (storedUser) {
@@ -44,9 +43,6 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        // Backend returns: { _id, name, email, role, token }
-        // We can verify if the role matches if needed, or just trust the backend.
-        // For now, let's just use what the backend returned.
         setUser(data);
         localStorage.setItem('user', JSON.stringify(data));
         return { success: true };
@@ -91,9 +87,6 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     localStorage.removeItem('admin_user');
     localStorage.removeItem('aurora_team_cache');
-    // Clear ALL React Query cache so the next user gets fresh data.
-    // Without this, a team_head's cached dashboard (with teams array) bleeds
-    // into the team_member's session and causes the "no team" screen.
     queryClient.clear();
   };
 
@@ -110,15 +103,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
-        // Save current user as adminUser (the impersonator)
         setAdminUser(user);
         localStorage.setItem('admin_user', JSON.stringify(user));
-
-        // Switch to target user
         setUser(data);
         localStorage.setItem('user', JSON.stringify(data));
-        
-        // Clear cache so we see the new user's actual data
         queryClient.clear();
         return { success: true };
       } else {
@@ -131,16 +119,10 @@ export const AuthProvider = ({ children }) => {
 
   const stopImpersonating = () => {
     if (!adminUser) return;
-
-    // Restore admin user
     setUser(adminUser);
     localStorage.setItem('user', JSON.stringify(adminUser));
-
-    // Clear impersonator state
     setAdminUser(null);
     localStorage.removeItem('admin_user');
-
-    // Clear cache to return to admin view
     queryClient.clear();
   };
 
@@ -169,7 +151,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const removeTeamMember = async (memberEmail) => {
-    // Placeholder: Backend doesn't support this yet
     logger.log('removeTeamMember not implemented in backend yet');
     return { success: false, error: 'Feature coming soon' };
   };
@@ -192,4 +173,3 @@ export const AuthProvider = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

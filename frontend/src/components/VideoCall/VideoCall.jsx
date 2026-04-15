@@ -77,7 +77,7 @@ const ConnectionBadge = ({ state }) => {
         initializing: { color: 'bg-gray-500', label: 'Initializing…' },
         connecting: { color: 'bg-yellow-500', label: 'Connecting…' },
         connected: { color: 'bg-green-500', label: 'Connected' },
-        failed: { color: 'bg-red-500', label: 'Connection Lost' },
+        failed: { color: 'bg-red-500', label: 'Call Failed' },
         disconnected: { color: 'bg-red-500', label: 'Disconnected' },
     };
     const { color, label } = config[state] || { color: 'bg-gray-500', label: state };
@@ -184,17 +184,35 @@ const ActiveCall = ({
                         </div>
                     )}
 
-                    {/* Media error */}
+                    {/* Error / Timeout Display */}
                     {mediaError && (
                         <div className="relative z-10 flex flex-col items-center text-center text-white max-w-sm px-6">
                             <div className="w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
-                                <VideoOff size={36} className="text-red-400" />
+                                {connectionState === 'failed' ? <PhoneOff size={36} className="text-red-400" /> : <VideoOff size={36} className="text-red-400" />}
                             </div>
-                            <h3 className="text-xl font-bold mb-2">Media Error</h3>
-                            <p className="text-gray-300 text-sm mb-6 leading-relaxed">{mediaError}</p>
+                            <h3 className="text-xl font-bold mb-2">
+                                {connectionState === 'failed' ? 'Connection Failed' : 'Media Error'}
+                            </h3>
+                            <p className="text-gray-300 text-sm mb-6 leading-relaxed">
+                                {mediaError}
+                            </p>
                             <div className="flex gap-3">
-                                <button onClick={leaveCall} className="px-5 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium transition-all">Cancel</button>
-                                <button onClick={getMedia} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-medium transition-all">Retry</button>
+                                <button onClick={leaveCall} className="px-5 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm font-medium transition-all">End Call</button>
+                                {connectionState === 'failed' ? (
+                                    <button 
+                                        onClick={() => window.location.reload()} 
+                                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-medium transition-all"
+                                    >
+                                        Reload Page
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={getMedia} 
+                                        className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-medium transition-all"
+                                    >
+                                        Retry Hardware
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}

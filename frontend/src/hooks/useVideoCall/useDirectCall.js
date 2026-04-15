@@ -1,16 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useChatContext } from '../../context/ChatContext';
-import { logger } from '../../utils/logger';
-
-const ICE_SERVERS = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' },
-    ],
-    iceCandidatePoolSize: 10,
-};
+import { ICE_SERVERS, WEBRTC_TIMEOUT } from '../../config/webrtcConfig';
 
 export const useDirectCall = ({
     isIncoming,
@@ -42,12 +30,15 @@ export const useDirectCall = ({
     const iceCandidateQueue = useRef([]);
     const isMountedRef = useRef(true);
     const callEndedRef = useRef(false);
-    const initPromiseRef = useRef(null);
     const processedIceCountRef = useRef(0);
+    const connectionTimeoutRef = useRef(null);
 
     // ── Cleanup ────────────────────────────────────────────────────────────
     const cleanup = useCallback(() => {
         callEndedRef.current = true;
+        if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+        }
 
         if (peerRef.current) {
             peerRef.current.ontrack = null;
@@ -71,6 +62,30 @@ export const useDirectCall = ({
         setStream(null);
         setRemoteStream(null);
     }, []);
+
+    // ── Connection Timeout Watchdog ──────────────────────────────────────────
+    useEffect(() => {
+        if (connectionState === 'connecting') {
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+            
+            connectionTimeoutRef.current = setTimeout(() => {
+                if (peerRef.current && (peerRef.current.connectionState === 'connecting' || peerRef.current.iceConnectionState === 'checking')) {
+                    logger.warn('WebRTC connection timed out after 20s');
+                    setConnectionState('failed');
+                    setMediaError('Connection timed out. This often happens due to restrictive firewalls. Try refreshing or using a different network.');
+                }
+            }, WEBRTC_TIMEOUT);
+        } else if (connectionState === 'connected' || connectionState === 'failed' || connectionState === 'disconnected') {
+            if (connectionTimeoutRef.current) {
+                clearTimeout(connectionTimeoutRef.current);
+                connectionTimeoutRef.current = null;
+            }
+        }
+
+        return () => {
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+        };
+    }, [connectionState]);
 
     // ── Get local media ────────────────────────────────────────────────────
     const getMedia = useCallback(async () => {
@@ -155,6 +170,7 @@ export const useDirectCall = ({
                     setStartTime(Date.now());
                 } else if (state === 'failed') {
                     logger.error('WebRTC connection failed');
+                    setMediaError('Connection failed to establish. This usually indicates a network or firewall blockage.');
                 }
             };
 
@@ -166,6 +182,8 @@ export const useDirectCall = ({
     // ── Main init effect ───────────────────────────────────────────────────
     useEffect(() => {
         isMountedRef.current = true;
+        let active = true;
+        let socketCleanup;
 
         const init = async () => {
             const socket = socketRef.current;
@@ -173,7 +191,7 @@ export const useDirectCall = ({
 
             // ── Register socket handlers FIRST so we don't miss events ────
             const onCallAccepted = async (signal) => {
-                if (!isMountedRef.current || callEndedRef.current) return;
+                if (!active || callEndedRef.current) return;
                 logger.log('callAccepted received');
                 setCallAccepted(true);
                 setConnectionState('connecting');
@@ -188,7 +206,7 @@ export const useDirectCall = ({
             };
 
             const onCallEnded = () => {
-                if (!isMountedRef.current) return;
+                if (!active) return;
                 logger.log('Remote ended the call');
                 setCallEnded(true);
                 cleanup();
@@ -197,10 +215,15 @@ export const useDirectCall = ({
 
             socket.on('callAccepted', onCallAccepted);
             socket.on('callEnded', onCallEnded);
+            socketCleanup = () => {
+                socket.off('callAccepted', onCallAccepted);
+                socket.off('callEnded', onCallEnded);
+            };
+
             if (!isIncoming) {
                 // ── OUTGOING ONLY: Fetch media & create/send offer ────────────────
                 const mediaStream = await getMedia();
-                if (!isMountedRef.current) return;
+                if (!active) return;
                 
                 const peer = createPeer(mediaStream);
                 try {
@@ -223,19 +246,12 @@ export const useDirectCall = ({
                 // ── INCOMING: Wait for user to answer before creating peer/media ─
                 setConnectionState('incoming');
             }
-
-            return () => {
-                socket.off('callAccepted', onCallAccepted);
-                socket.off('callEnded', onCallEnded);
-            };
         };
 
-        const promise = init();
-        initPromiseRef.current = promise;
-        let socketCleanup;
-        promise.then(fn => { socketCleanup = fn; });
+        init();
 
         return () => {
+            active = false;
             isMountedRef.current = false;
             socketCleanup?.();
             cleanup();

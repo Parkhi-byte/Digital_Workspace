@@ -9,16 +9,44 @@ import { useTeamManagement } from '../hooks/useTeamManagement/useTeamManagement'
 import EventModal from '../components/Calendar/EventModal';
 import CalendarSidebar from '../components/Calendar/CalendarSidebar';
 import CustomToolbar from '../components/Calendar/CustomToolbar';
+import { useChatContext } from '../context/ChatContext';
+import { useEffect } from 'react';
 
 // Setup the localizer for react-big-calendar
 const localizer = momentLocalizer(moment);
 
 const CalendarPage = () => {
-    const { events, loading, createEvent, updateEvent, deleteEvent } = useCalendar();
-    const { currentTeam } = useTeamManagement();
+    const { events, loading, fetchEvents, createEvent, updateEvent, deleteEvent } = useCalendar();
+    const { teams, currentTeamId, setCurrentTeamId, currentTeam, isMasterAdmin } = useTeamManagement();
+    const { socketRef, socketConnected } = useChatContext();
     const [showModal, setShowModal] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [activeFilters, setActiveFilters] = useState([]);
+
+    // Real-time synchronization
+    useEffect(() => {
+        if (!socketRef?.current || !socketConnected) return;
+
+        const handleUpdate = (payload) => {
+            // Refresh if it's a platform update, or matches our current team, or we are in "All Teams" view
+            if (!payload.teamId || !currentTeamId || payload.teamId === currentTeamId) {
+                fetchEvents(currentTeamId || 'all');
+            }
+        };
+
+        socketRef.current.on('team_update', handleUpdate);
+        socketRef.current.on('platform_update', handleUpdate);
+
+        return () => {
+            socketRef.current?.off('team_update', handleUpdate);
+            socketRef.current?.off('platform_update', handleUpdate);
+        };
+    }, [socketRef, socketConnected, fetchEvents, currentTeamId]);
+
+    // Fetch when selected team changes
+    useEffect(() => {
+        fetchEvents(currentTeamId || 'all');
+    }, [currentTeamId, fetchEvents]);
 
     const handleSelectSlot = ({ start, end }) => {
         setSelectedEvent({
@@ -102,18 +130,40 @@ const CalendarPage = () => {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => {
-                            handleSelectSlot({
-                                start: new Date(),
-                                end: new Date(new Date().setHours(new Date().getHours() + 1))
-                            });
-                        }}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full font-medium transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
-                    >
-                        <Plus size={20} />
-                        <span>Create Event</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Team Selector Filter */}
+                        <div className="relative group">
+                            <select
+                                value={currentTeamId || 'all'}
+                                onChange={(e) => setCurrentTeamId(e.target.value === 'all' ? null : e.target.value)}
+                                className="appearance-none pl-10 pr-10 py-2.5 bg-white dark:bg-gray-800 border-2 border-transparent hover:border-indigo-500/30 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-indigo-500/10 cursor-pointer shadow-sm transition-all text-gray-700 dark:text-gray-300 min-w-[160px]"
+                            >
+                                <option value="all">🌐 All Teams</option>
+                                {teams.map(team => (
+                                    <option key={team.id} value={team.id}>👥 {team.name}</option>
+                                ))}
+                            </select>
+                            <Filter className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-indigo-500 pointer-events-none" size={16} />
+                            <div className="absolute right-3.5 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400 group-hover:text-indigo-500 transition-colors">
+                                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                handleSelectSlot({
+                                    start: new Date(),
+                                    end: new Date(new Date().setHours(new Date().getHours() + 1))
+                                });
+                            }}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:scale-95"
+                        >
+                            <Plus size={20} />
+                            <span>Create Event</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-6 pb-6">

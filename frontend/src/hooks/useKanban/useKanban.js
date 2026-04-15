@@ -33,11 +33,11 @@ export const useKanban = () => {
     });
 
     // Fetch Data
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (teamId = 'all') => {
         if (!user || !user.token) return;
         setLoading(true);
         try {
-            // 1. Fetch Teams
+            // 1. Fetch Teams (Keep this to populate selector)
             const teamResponse = await fetch('/api/team', {
                 headers: { 'Authorization': `Bearer ${user.token}` },
             });
@@ -48,18 +48,15 @@ export const useKanban = () => {
                 currentTeams = Array.isArray(teamData) ? teamData : [];
                 setTeams(currentTeams);
 
-                // Set default team if none selected
+                // Initialize selector for Master Admin or regular users
                 if (!selectedTeam && currentTeams.length > 0) {
                     setSelectedTeam(currentTeams[0]);
-                } else if (selectedTeam) {
-                    // Update the selected team object with fresh data if it exists
-                    const updatedSelected = currentTeams.find(t => t.id === selectedTeam.id);
-                    if (updatedSelected) setSelectedTeam(updatedSelected);
                 }
             }
 
-            // 2. Fetch Tasks
-            const response = await fetch('/api/tasks', {
+            // 2. Fetch Tasks (Targeted by teamId)
+            const tasksUrl = teamId && teamId !== 'all' ? `/api/tasks?teamId=${teamId}` : '/api/tasks';
+            const response = await fetch(tasksUrl, {
                 headers: { 'Authorization': `Bearer ${user.token}` },
             });
             const data = await response.json();
@@ -71,13 +68,13 @@ export const useKanban = () => {
         } finally {
             setLoading(false);
         }
-    }, [user, selectedTeam]); // dependent on selectedTeam ID stability? No, simpler to just run on mount/user change.
-
-    // Better to split fetch so selecting team doesn't re-fetch everything
+    }, [user, selectedTeam]);
 
     useEffect(() => {
-        fetchData();
-    }, [user]); // Run once on mount/user change
+        if (user) {
+            fetchData(selectedTeam?.id || 'all');
+        }
+    }, [user, selectedTeam?.id]);
 
     // Derived State: filteredTasks by TEAM and Search
     const filteredTasks = useMemo(() => {
