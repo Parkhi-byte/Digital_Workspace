@@ -3,19 +3,45 @@ import User from '../../models/User.js';
 import Team from '../../models/Team.js';
 import Task from '../../models/Task.js';
 import AuditLog from '../../models/AuditLog.js';
+import Document from '../../models/Document.js';
 
 export const getPlatformStats = asyncHandler(async (req, res) => {
-    const [totalUsers, activeUsers, suspendedUsers, pendingUsers, totalTeams, totalTasks, completedTasks] = await Promise.all([
+    const [
+        totalUsers, 
+        activeUsers, 
+        suspendedUsers, 
+        pendingUsers, 
+        totalTeams, 
+        totalTasks, 
+        completedTasks, 
+        totalDocuments,
+        teamHeads,
+        teamMembers
+    ] = await Promise.all([
         User.countDocuments({ status: { $ne: 'pending' } }),
         User.countDocuments({ status: 'active' }),
         User.countDocuments({ status: 'suspended' }),
         User.countDocuments({ status: 'pending' }),
         Team.countDocuments({}),
         Task.countDocuments({}),
-        Task.countDocuments({ status: 'Done' })
+        Task.countDocuments({ status: 'Done' }),
+        Document.countDocuments({}),
+        User.countDocuments({ role: 'team_head' }),
+        User.countDocuments({ role: 'team_member' })
     ]);
 
-    res.json({ totalUsers, activeUsers, suspendedUsers, pendingUsers, totalTeams, totalTasks, completedTasks });
+    res.json({ 
+        totalUsers, 
+        activeUsers, 
+        suspendedUsers, 
+        pendingUsers, 
+        totalTeams, 
+        totalTasks, 
+        completedTasks, 
+        totalDocuments,
+        teamHeads,
+        teamMembers
+    });
 });
 
 export const getAuditLogs = asyncHandler(async (req, res) => {
