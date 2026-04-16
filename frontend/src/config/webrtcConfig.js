@@ -8,18 +8,33 @@
 
 export const ICE_SERVERS = {
     iceServers: [
+        // STUN servers — for NAT discovery
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' },
-        // --- ADD TURN SERVERS BELOW ---
-        // {
-        //     urls: 'turn:YOUR_TURN_SERVER_DOMAIN:3478',
-        //     username: 'YOUR_USERNAME',
-        //     credential: 'YOUR_PASSWORD'
-        // }
+        // Free TURN servers (OpenRelay) — relay traffic through symmetric NAT / firewalls
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
+        {
+            urls: 'turns:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
     ],
     iceCandidatePoolSize: 10,
 };

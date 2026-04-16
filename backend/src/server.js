@@ -30,13 +30,36 @@ const app = express();
 app.set('trust proxy', 1);
 const server = http.createServer(app);
 
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:4000',
+  'http://127.0.0.1:5173',
+  process.env.CLIENT_URL, // e.g. https://your-app.vercel.app
+].filter(Boolean);
+
+// Helper: check if an origin is allowed (includes *.vercel.app for preview deploys)
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // allow server-to-server / non-browser
+  if (ALLOWED_ORIGINS.some(o => origin === o)) return true;
+  if (origin.endsWith('.vercel.app')) return true; // allow all Vercel preview URLs
+  return false;
+};
+
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) callback(null, true);
+      else callback(new Error(`Socket CORS blocked: ${origin}`));
+    },
     methods: ['GET', 'POST'],
-    credentials: true
-  }
+    credentials: true,
+  },
+  // Keep alive — prevents Render free tier idle disconnects
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
 });
+
 
 const uploadsDir = path.join(path.resolve(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -60,9 +83,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 app.use(cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173", process.env.CLIENT_URL].filter(Boolean),
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) callback(null, true);
+    else callback(new Error(`CORS blocked: ${origin}`));
+  },
   credentials: true
 }));
+
 app.use(express.json());
 
 app.set('socketio', io);

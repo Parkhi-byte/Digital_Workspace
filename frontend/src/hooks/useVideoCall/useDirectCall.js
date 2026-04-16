@@ -155,11 +155,11 @@ export const useDirectCall = ({
                 const remote = event.streams[0];
                 logger.log('Remote track received:', event.track.kind, 'Stream ID:', remote?.id);
                 setRemoteStream(remote);
+                // Eagerly attach to ref if already available; the useEffect handles the delayed case
                 if (userVideoRef.current && remote) {
                     if (userVideoRef.current.srcObject !== remote) {
                         userVideoRef.current.srcObject = remote;
                     }
-                    // Explicitly trigger play to ensure stream resumes after dynamic assignment
                     userVideoRef.current.play().catch(e => logger.warn('Autoplay prevented or interrupted:', e));
                 }
             };
@@ -171,17 +171,17 @@ export const useDirectCall = ({
                 socketRef.current?.emit('ice-candidate', { to, candidate: event.candidate });
             };
 
-            // Connection state handler
+            // Connection state handler — use a ref for startTime to avoid stale closure
             peer.onconnectionstatechange = () => {
                 if (!isMountedRef.current) return;
                 const state = peer.connectionState;
                 logger.log('Overall Connection state:', state);
                 setConnectionState(state);
-                if (state === 'connected' && !startTime) {
-                    setStartTime(Date.now());
+                if (state === 'connected') {
+                    setStartTime(prev => prev ?? Date.now());
                 } else if (state === 'failed') {
                     logger.error('WebRTC connection failed');
-                    setMediaError('Connection failed to establish. This usually indicates a network or firewall blockage. A TURN server is likely required for this connection.');
+                    setMediaError('Connection failed to establish. Attempting relay via TURN server…');
                 }
             };
 
@@ -189,7 +189,8 @@ export const useDirectCall = ({
                 if (!isMountedRef.current) return;
                 logger.log('ICE Connection state:', peer.iceConnectionState);
                 if (peer.iceConnectionState === 'failed') {
-                    setConnectionState('failed');
+                    logger.warn('ICE failed — triggering ICE restart');
+                    peer.restartIce();
                 }
             };
 
@@ -199,7 +200,8 @@ export const useDirectCall = ({
 
             return peer;
         },
-        [isIncoming, callerId, userToCall, socketRef, startTime]
+        // Removed startTime from deps — we use functional setStartTime to avoid stale closure
+        [isIncoming, callerId, userToCall, socketRef]
     );
 
     // ── Main init effect ───────────────────────────────────────────────────
@@ -341,7 +343,7 @@ export const useDirectCall = ({
         }
 
         try {
-            logger.log('Answering call from', callerId);
+            logger.log('Answering call from', callerId, '| audio-only:', !isVideoCall);
             setConnectionState('connecting');
 
             // 1. Fetch Media securely on button click
@@ -350,17 +352,14 @@ export const useDirectCall = ({
                throw new Error('Media permission denied or hardware unavailable.');
             }
 
-            // 2. Initialize Peer explicitly
+            // 2. Initialize Peer
             const peer = createPeer(mediaStream);
-            if (!peer) throw new Error("Could not instantiate WebRTC Peer");
+            if (!peer) throw new Error('Could not instantiate WebRTC Peer');
 
-            if (!callerSignal) throw new Error("No incoming signal found");
+            if (!callerSignal) throw new Error('No incoming signal found');
             await peer.setRemoteDescription(new RTCSessionDescription(callerSignal));
             flushIceCandidates();
-            const answer = await peer.createAnswer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: isVideoCall
-            });
+            const answer = await peer.createAnswer();
             await peer.setLocalDescription(answer);
 
             socket.emit('answerCall', { signal: answer, to: callerId });
@@ -371,7 +370,8 @@ export const useDirectCall = ({
             logger.error('answerCall failed:', e);
             setMediaError('Failed to pick up: ' + (e.message || 'Network error'));
         }
-    }, [callerId, callerSignal, socketRef, flushIceCandidates]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [callerId, callerSignal, socketRef, flushIceCandidates, getMedia, createPeer, isVideoCall]);
 
     // ── Leave call ─────────────────────────────────────────────────────────
     const leaveCall = useCallback(() => {

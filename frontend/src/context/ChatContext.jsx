@@ -11,7 +11,8 @@ const ChatContext = createContext();
 
 const SOCKET_URL = import.meta.env.PROD 
     ? 'https://digital-workspace.onrender.com' 
-    : '/';
+    : 'http://localhost:4000';
+
 
 export const ChatProvider = ({ children }) => {
     const { user } = useAuth();
@@ -158,10 +159,13 @@ export const ChatProvider = ({ children }) => {
         if (!user) return;
 
         socketRef.current = io(SOCKET_URL, {
+            transports: ['websocket'], // Force WebSocket — Vercel does not proxy WS upgrades
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 10,
+            timeout: 20000,
         });
+
 
         socketRef.current.on('connect', () => {
             logger.log('Socket connected/reconnected');

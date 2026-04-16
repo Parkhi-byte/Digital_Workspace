@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, PhoneOff, Phone,
     Monitor, MonitorOff, Maximize2, Minimize2, X
@@ -99,6 +99,16 @@ const ActiveCall = ({
     const [isFullscreen, setIsFullscreen] = useState(false);
     const { user } = useChatContext();
 
+    // Force-sync remoteStream to the video element on every render.
+    // This handles the race where remoteStream state is set before the
+    // <video ref={userVideoRef}> element mounts (IncomingCall → ActiveCall transition).
+    useLayoutEffect(() => {
+        if (userVideoRef.current && remoteStream && userVideoRef.current.srcObject !== remoteStream) {
+            userVideoRef.current.srcObject = remoteStream;
+            userVideoRef.current.play().catch(() => {});
+        }
+    });
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm">
             <div className={`relative flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-white/10 shadow-2xl transition-all duration-300
@@ -145,12 +155,13 @@ const ActiveCall = ({
                 <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
 
                     {/* Remote Media Element (handles both video and audio) */}
-                    {callAccepted && remoteStream && (
+                    {/* Always render once accepted so userVideoRef is always mounted for srcObject assignment */}
+                    {callAccepted && (
                         <video
                             ref={userVideoRef}
                             autoPlay
                             playsInline
-                            className={isVideoCall ? "absolute inset-0 w-full h-full object-cover" : "opacity-0 absolute w-px h-px pointer-events-none"}
+                            className={isVideoCall ? 'absolute inset-0 w-full h-full object-cover' : 'opacity-0 absolute w-px h-px pointer-events-none'}
                         />
                     )}
 
