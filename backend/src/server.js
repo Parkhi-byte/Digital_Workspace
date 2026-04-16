@@ -34,14 +34,13 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:4000',
   'http://127.0.0.1:5173',
-  process.env.CLIENT_URL, // e.g. https://your-app.vercel.app
+  process.env.CLIENT_URL,
 ].filter(Boolean);
 
-// Helper: check if an origin is allowed (includes *.vercel.app for preview deploys)
 const isOriginAllowed = (origin) => {
-  if (!origin) return true; // allow server-to-server / non-browser
+  if (!origin) return true;
   if (ALLOWED_ORIGINS.some(o => origin === o)) return true;
-  if (origin.endsWith('.vercel.app')) return true; // allow all Vercel preview URLs
+  if (origin.endsWith('.vercel.app')) return true;
   return false;
 };
 
@@ -54,7 +53,6 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  // Keep alive — prevents Render free tier idle disconnects
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling'],

@@ -6,7 +6,6 @@ import {
 import { useDirectCall } from '../../hooks/useVideoCall/useDirectCall';
 import { useChatContext } from '../../context/ChatContext';
 
-// ── Call Timer ──────────────────────────────────────────────────────────────
 const CallTimer = ({ startTime }) => {
     const [elapsed, setElapsed] = useState(0);
     useEffect(() => {
@@ -21,11 +20,9 @@ const CallTimer = ({ startTime }) => {
     return <span className="tabular-nums">{m}:{s}</span>;
 };
 
-// ── Incoming Call Screen ────────────────────────────────────────────────────
 const IncomingCall = ({ callerName, isVideoCall, onAnswer, onDecline }) => (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-4">
         <div className="w-full max-w-sm bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10">
-            {/* Animated ring */}
             <div className="relative flex justify-center pt-12 pb-2">
                 <div className="absolute w-40 h-40 rounded-full bg-green-500/10 animate-ping" />
                 <div className="absolute w-32 h-32 rounded-full bg-green-500/15 animate-ping [animation-delay:0.3s]" />
@@ -42,7 +39,6 @@ const IncomingCall = ({ callerName, isVideoCall, onAnswer, onDecline }) => (
                 </p>
             </div>
 
-            {/* Accept — centred in the card */}
             <div className="flex flex-col items-center gap-2 py-8">
                 <button
                     onClick={onAnswer}
@@ -54,7 +50,6 @@ const IncomingCall = ({ callerName, isVideoCall, onAnswer, onDecline }) => (
                 <span className="text-xs text-gray-400">Accept</span>
             </div>
 
-            {/* Decline — pinned to the bottom of the card */}
             <div className="flex flex-col items-center gap-2 pb-8">
                 <button
                     onClick={onDecline}
@@ -69,7 +64,6 @@ const IncomingCall = ({ callerName, isVideoCall, onAnswer, onDecline }) => (
     </div>
 );
 
-// ── Connection Badge ────────────────────────────────────────────────────────
 const ConnectionBadge = ({ state }) => {
     const config = {
         calling: { color: 'bg-yellow-500', label: 'Calling…' },
@@ -89,7 +83,6 @@ const ConnectionBadge = ({ state }) => {
     );
 };
 
-// ── Active Call UI ──────────────────────────────────────────────────────────
 const ActiveCall = ({
     callerName, isVideoCall, callAccepted, connectionState, startTime,
     stream, remoteStream, isMuted, isVideoOff, isScreenSharing, mediaError,
@@ -99,13 +92,13 @@ const ActiveCall = ({
     const [isFullscreen, setIsFullscreen] = useState(false);
     const { user } = useChatContext();
 
-    // Force-sync remoteStream to the video element on every render.
-    // This handles the race where remoteStream state is set before the
-    // <video ref={userVideoRef}> element mounts (IncomingCall → ActiveCall transition).
     useLayoutEffect(() => {
         if (userVideoRef.current && remoteStream && userVideoRef.current.srcObject !== remoteStream) {
             userVideoRef.current.srcObject = remoteStream;
             userVideoRef.current.play().catch(() => {});
+        }
+        if (myVideoRef.current && stream && myVideoRef.current.srcObject !== stream) {
+            myVideoRef.current.srcObject = stream;
         }
     });
 
@@ -114,7 +107,6 @@ const ActiveCall = ({
             <div className={`relative flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-white/10 shadow-2xl transition-all duration-300
                 ${isFullscreen ? 'w-full h-full rounded-none' : 'w-full h-full sm:w-[95vw] sm:h-[92vh] sm:max-w-6xl sm:rounded-2xl sm:overflow-hidden'}`}>
 
-                {/* Header bar */}
                 <div className="absolute top-0 inset-x-0 z-20 flex items-start justify-between p-4 sm:p-6 bg-gradient-to-b from-black/70 to-transparent pointer-events-none">
                     <div className="pointer-events-auto">
                         <p className="text-white font-bold text-lg sm:text-xl leading-tight">
@@ -151,11 +143,8 @@ const ActiveCall = ({
                     </div>
                 </div>
 
-                {/* Main content */}
                 <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
 
-                    {/* Remote Media Element (handles both video and audio) */}
-                    {/* Always render once accepted so userVideoRef is always mounted for srcObject assignment */}
                     {callAccepted && (
                         <video
                             ref={userVideoRef}
@@ -165,10 +154,8 @@ const ActiveCall = ({
                         />
                     )}
 
-                    {/* Center avatar / status (shown before connection or audio-only) */}
                     {(!callAccepted || !isVideoCall || !remoteStream) && !mediaError && (
                         <div className="relative z-10 flex flex-col items-center text-white select-none px-6 text-center">
-                            {/* Animated rings while waiting for answer */}
                             {!callAccepted && (
                                 <>
                                     <div className="absolute w-52 h-52 rounded-full bg-indigo-500/10 animate-ping" style={{ animationDuration: '1.5s' }} />
@@ -189,7 +176,6 @@ const ActiveCall = ({
                         </div>
                     )}
 
-                    {/* Error / Timeout Display */}
                     {mediaError && (
                         <div className="relative z-10 flex flex-col items-center text-center text-white max-w-sm px-6">
                             <div className="w-20 h-20 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center mb-5">
@@ -222,7 +208,6 @@ const ActiveCall = ({
                         </div>
                     )}
 
-                    {/* My video (PiP) */}
                     {isVideoCall && stream && !mediaError && (
                         <div className="absolute bottom-24 right-4 z-30 w-36 sm:w-52 aspect-video rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-gray-900 hover:scale-105 transition-transform group">
                             {isVideoOff ? (
@@ -248,10 +233,8 @@ const ActiveCall = ({
                     )}
                 </div>
 
-                {/* Controls bar */}
                 <div className="relative z-20 h-20 sm:h-24 bg-gradient-to-t from-black via-gray-900/90 to-transparent flex items-center justify-center gap-3 sm:gap-5 px-6 border-t border-white/5">
 
-                    {/* Mute */}
                     <ControlButton
                         active={isMuted}
                         activeClass="bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/40"
@@ -263,7 +246,6 @@ const ActiveCall = ({
                         {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                     </ControlButton>
 
-                    {/* Video toggle (video calls only) */}
                     {isVideoCall && (
                         <ControlButton
                             active={isVideoOff}
@@ -277,7 +259,6 @@ const ActiveCall = ({
                         </ControlButton>
                     )}
 
-                    {/* Screen share (video calls only) */}
                     {isVideoCall && (
                         <ControlButton
                             active={isScreenSharing}
@@ -291,7 +272,6 @@ const ActiveCall = ({
                         </ControlButton>
                     )}
 
-                    {/* End call */}
                     <button
                         onClick={leaveCall}
                         className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white flex items-center justify-center shadow-2xl shadow-red-600/50 active:scale-95 transition-all ml-2"
@@ -306,7 +286,6 @@ const ActiveCall = ({
     );
 };
 
-// ── Small reusable control button ───────────────────────────────────────────
 const ControlButton = ({ active, activeClass, inactiveClass, onClick, title, disabled, children }) => (
     <button
         onClick={onClick}
@@ -318,7 +297,6 @@ const ControlButton = ({ active, activeClass, inactiveClass, onClick, title, dis
     </button>
 );
 
-// ── Root VideoCall component (used as global overlay in Layout.jsx) ──────────
 const VideoCall = ({
     isIncoming,
     callerSignal,
@@ -341,7 +319,6 @@ const VideoCall = ({
         isVideoCall,
     });
 
-    // Show incoming ring screen before user answers
     if (isIncoming && !call.callAccepted && !call.callEnded && !isAnswering) {
         return (
             <IncomingCall
@@ -349,7 +326,7 @@ const VideoCall = ({
                 isVideoCall={isVideoCall}
                 onAnswer={() => {
                     setIsAnswering(true);
-                    onAnswer?.();     // update ChatContext callAccepted state
+                    onAnswer?.();
                     call.answerCall();
                 }}
                 onDecline={call.leaveCall}

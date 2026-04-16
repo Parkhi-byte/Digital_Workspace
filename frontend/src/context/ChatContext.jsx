@@ -1,10 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import io from 'socket.io-client';
 import { logger } from '../utils/logger';
 
-// Use files from public/sounds to avoid cache issues
 const ringtoneSound = '/sounds/ringtone.mp3';
 
 const ChatContext = createContext();
@@ -25,18 +23,15 @@ export const ChatProvider = ({ children }) => {
     const [fetchedChats, setFetchedChats] = useState(new Set());
     const sentMessageIdsRef = useRef(new Set());
     const processedMessageIdsRef = useRef(new Set());
-    const [onlineUsers, setOnlineUsers] = useState(new Set()); // New state for online users
+    const [onlineUsers, setOnlineUsers] = useState(new Set());
 
     const ringtoneRef = useRef(null);
 
-    // Initialize sounds
     useEffect(() => {
-        // Add cache-busting parameter to avoid ERR_CACHE_OPERATION_NOT_SUPPORTED in some environments
         ringtoneRef.current = new Audio(`${ringtoneSound}?t=${Date.now()}`);
         ringtoneRef.current.loop = true;
     }, []);
 
-    // Calculate total unread count whenever chatsData changes
     useEffect(() => {
         const count = Object.values(chatsData).reduce((total, chat) => {
             return total + (chat.unreadCount || 0);
@@ -48,7 +43,6 @@ export const ChatProvider = ({ children }) => {
     useEffect(() => {
         activeChatRef.current = activeChat;
 
-        // Reset unread for active chat
         if (activeChat) {
             setChatsData(prev => {
                 if (!prev[activeChat]) return prev;
@@ -64,7 +58,6 @@ export const ChatProvider = ({ children }) => {
         }
     }, [activeChat]);
 
-    // Fetch User Chats
     const fetchUserChats = useCallback(async () => {
         const token = user?.token || JSON.parse(localStorage.getItem('user'))?.token;
         if (!token) return;
@@ -129,10 +122,8 @@ export const ChatProvider = ({ children }) => {
         }
     }, [user]);
 
-    // Unlock audio context on first interaction
     useEffect(() => {
         const unlockAudio = () => {
-            // Use a silent sound to unlock audio context without playing the ringtone
             const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
             audio.play().catch(() => { });
             document.removeEventListener('click', unlockAudio);
@@ -154,12 +145,11 @@ export const ChatProvider = ({ children }) => {
         }
     }, [user, fetchUserChats]);
 
-    // Socket Connection
     useEffect(() => {
         if (!user) return;
 
         socketRef.current = io(SOCKET_URL, {
-            transports: ['websocket'], // Force WebSocket — Vercel does not proxy WS upgrades
+            transports: ['websocket'],
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionAttempts: 10,
@@ -169,10 +159,8 @@ export const ChatProvider = ({ children }) => {
 
         socketRef.current.on('connect', () => {
             logger.log('Socket connected/reconnected');
-            // Identify ourselves to the server so we join our personal room
             socketRef.current.emit('setup', user);
             setSocketConnected(true);
-            // Re-join the active chat room after reconnect
             if (activeChatRef.current) {
                 socketRef.current.emit('joinChat', activeChatRef.current);
             }
@@ -181,23 +169,19 @@ export const ChatProvider = ({ children }) => {
         socketRef.current.on('disconnect', () => {
             logger.log('Socket disconnected');
             setSocketConnected(false);
-            setOnlineUsers(new Set()); // Clear online users on disconnect
+            setOnlineUsers(new Set());
         });
 
-        // Listen for online users updates
+
         socketRef.current.on('onlineUsers', (users) => {
             setOnlineUsers(new Set(users));
         });
 
         socketRef.current.on('receiveMessage', (newMessage) => {
-            // Deduplicate: message may arrive via the socket room channel
-            // AND via the personal-room fan-out simultaneously.
             const msgId = newMessage._id?.toString();
             if (msgId && processedMessageIdsRef.current.has(msgId)) return;
             if (msgId) processedMessageIdsRef.current.add(msgId);
 
-            // Ignore messages sent by the current user (they already have
-            // the optimistic message in state)
             const senderId = newMessage.sender?._id?.toString() || newMessage.sender?.toString();
             const isOwnMessage = senderId && senderId === (user?._id?.toString() || user?.id?.toString());
             if (isOwnMessage) return;
@@ -220,7 +204,6 @@ export const ChatProvider = ({ children }) => {
                 const existingChat = prev[chatId];
 
                 if (existingChat) {
-                    // Try to play sound immediately on reception if possible, otherwise it catches.
                     return {
                         ...prev,
                         [chatId]: {
@@ -259,20 +242,16 @@ export const ChatProvider = ({ children }) => {
             });
 
             if (chatId !== activeChatRef.current) {
-                // Removed notification sound as per user request
             }
         });
 
-        // Listen for incoming 1-on-1 calls
         socketRef.current.on('callUser', ({ from, name, signal, isVideo }) => {
             logger.log('Receiving call from', name, 'Video:', isVideo);
             setCall({ isReceivingCall: true, from, name, signal, isVideo, iceCandidates: [] });
         });
 
-        // Buffer all incoming ICE candidates to avoid race conditions
         socketRef.current.on('ice-candidate', (candidate) => {
             setCall(prev => {
-                // Ignore if not actively managing a call
                 if (!prev.isReceivingCall && !prev.userToCall) return prev;
                 return {
                     ...prev,
@@ -286,14 +265,12 @@ export const ChatProvider = ({ children }) => {
         };
     }, [user]);
 
-    // Video Call State
     const [call, setCall] = useState({});
     const [callAccepted, setCallAccepted] = useState(false);
     const [callEnded, setCallEnded] = useState(false);
     const [isCalling, setIsCalling] = useState(false);
 
     const startCall = (userId, userName, isVideo = true) => {
-        // Reset any leftover state from a previous call first
         setCallAccepted(false);
         setCallEnded(false);
         setIsCalling(true);
@@ -305,8 +282,6 @@ export const ChatProvider = ({ children }) => {
     };
 
     const endCall = () => {
-        // Socket signaling (endCall emit) is handled by useDirectCall.leaveCall
-        // before it calls this function. Here we just clean up context state.
         setCall({});
         setCallAccepted(false);
         setCallEnded(true);
@@ -345,8 +320,7 @@ export const ChatProvider = ({ children }) => {
         fetchUserChats,
         user,
         onlineUsers,
-        chats: Object.values(chatsData), // Export chats as array
-        // Call additions
+        chats: Object.values(chatsData),
         call,
         callAccepted,
         callEnded,

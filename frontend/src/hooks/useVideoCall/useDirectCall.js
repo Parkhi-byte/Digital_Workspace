@@ -36,7 +36,6 @@ export const useDirectCall = ({
     const processedIceCountRef = useRef(0);
     const connectionTimeoutRef = useRef(null);
 
-    // ── Cleanup ────────────────────────────────────────────────────────────
     const cleanup = useCallback(() => {
         callEndedRef.current = true;
         if (connectionTimeoutRef.current) {
@@ -66,7 +65,6 @@ export const useDirectCall = ({
         setRemoteStream(null);
     }, []);
 
-    // ── Connection Timeout Watchdog ──────────────────────────────────────────
     useEffect(() => {
         if (connectionState === 'connecting') {
             if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
@@ -90,13 +88,11 @@ export const useDirectCall = ({
         };
     }, [connectionState]);
 
-    // ── Get local media ────────────────────────────────────────────────────
     const getMedia = useCallback(async () => {
         setMediaError(null);
         try {
-            // Simplified constraints for better hardware compatibility
             const constraints = {
-                audio: true, // Start with basic true for widest compatibility
+                audio: true,
                 video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
             };
             
@@ -126,7 +122,6 @@ export const useDirectCall = ({
         }
     }, [isVideoCall]);
 
-    // ── Process queued ICE candidates ──────────────────────────────────────
     const flushIceCandidates = useCallback(() => {
         const peer = peerRef.current;
         if (!peer || !peer.remoteDescription) return;
@@ -138,24 +133,20 @@ export const useDirectCall = ({
         }
     }, []);
 
-    // ── Create peer connection ─────────────────────────────────────────────
     const createPeer = useCallback(
         (mediaStream) => {
             const peer = new RTCPeerConnection(ICE_SERVERS);
             peerRef.current = peer;
 
-            // Add local tracks
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => peer.addTrack(track, mediaStream));
             }
 
-            // Remote stream handler
             peer.ontrack = (event) => {
                 if (!isMountedRef.current) return;
                 const remote = event.streams[0];
                 logger.log('Remote track received:', event.track.kind, 'Stream ID:', remote?.id);
                 setRemoteStream(remote);
-                // Eagerly attach to ref if already available; the useEffect handles the delayed case
                 if (userVideoRef.current && remote) {
                     if (userVideoRef.current.srcObject !== remote) {
                         userVideoRef.current.srcObject = remote;
@@ -164,14 +155,12 @@ export const useDirectCall = ({
                 }
             };
 
-            // ICE candidate handler
             peer.onicecandidate = (event) => {
                 if (!event.candidate) return;
                 const to = isIncoming ? callerId : userToCall;
                 socketRef.current?.emit('ice-candidate', { to, candidate: event.candidate });
             };
 
-            // Connection state handler — use a ref for startTime to avoid stale closure
             peer.onconnectionstatechange = () => {
                 if (!isMountedRef.current) return;
                 const state = peer.connectionState;
@@ -200,11 +189,9 @@ export const useDirectCall = ({
 
             return peer;
         },
-        // Removed startTime from deps — we use functional setStartTime to avoid stale closure
         [isIncoming, callerId, userToCall, socketRef]
     );
 
-    // ── Main init effect ───────────────────────────────────────────────────
     useEffect(() => {
         isMountedRef.current = true;
         let active = true;
@@ -214,7 +201,6 @@ export const useDirectCall = ({
             const socket = socketRef.current;
             if (!socket) return;
 
-            // ── Register socket handlers FIRST so we don't miss events ────
             const onCallAccepted = async (signal) => {
                 if (!active || callEndedRef.current) return;
                 logger.log('callAccepted received');
@@ -246,17 +232,13 @@ export const useDirectCall = ({
             };
 
             if (!isIncoming) {
-                // ── OUTGOING ONLY: Fetch media & create/send offer ────────────────
                 const mediaStream = await getMedia();
                 if (!active) return;
                 
                 const peer = createPeer(mediaStream);
                 try {
                     setConnectionState('calling');
-                    const offer = await peer.createOffer({
-                        offerToReceiveAudio: true,
-                        offerToReceiveVideo: isVideoCall
-                    });
+                    const offer = await peer.createOffer();
                     await peer.setLocalDescription(offer);
                     socket.emit('callUser', {
                         userToCall,
@@ -271,7 +253,6 @@ export const useDirectCall = ({
                     setMediaError('Failed to initiate the call. Please try again.');
                 }
             } else {
-                // ── INCOMING: Wait for user to answer before creating peer/media ─
                 setConnectionState('incoming');
             }
         };
@@ -284,10 +265,8 @@ export const useDirectCall = ({
             socketCleanup?.();
             cleanup();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Sync video refs when streams arrive
     useEffect(() => {
         if (myVideoRef.current && stream) {
             if (myVideoRef.current.srcObject !== stream) {
@@ -297,7 +276,6 @@ export const useDirectCall = ({
         }
     }, [stream]);
 
-    // Sync remote streams when they arrive
     useEffect(() => {
         if (userVideoRef.current && remoteStream) {
             if (userVideoRef.current.srcObject !== remoteStream) {
@@ -312,7 +290,6 @@ export const useDirectCall = ({
         }
     }, [remoteStream]);
 
-    // Process incoming ICE candidates buffered in ChatContext
     useEffect(() => {
         const peer = peerRef.current;
         if (!peer || callEndedRef.current) return;
@@ -346,13 +323,11 @@ export const useDirectCall = ({
             logger.log('Answering call from', callerId, '| audio-only:', !isVideoCall);
             setConnectionState('connecting');
 
-            // 1. Fetch Media securely on button click
             const mediaStream = await getMedia();
             if (!mediaStream) {
                throw new Error('Media permission denied or hardware unavailable.');
             }
 
-            // 2. Initialize Peer
             const peer = createPeer(mediaStream);
             if (!peer) throw new Error('Could not instantiate WebRTC Peer');
 
@@ -370,10 +345,8 @@ export const useDirectCall = ({
             logger.error('answerCall failed:', e);
             setMediaError('Failed to pick up: ' + (e.message || 'Network error'));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [callerId, callerSignal, socketRef, flushIceCandidates, getMedia, createPeer, isVideoCall]);
 
-    // ── Leave call ─────────────────────────────────────────────────────────
     const leaveCall = useCallback(() => {
         const to = isIncoming ? callerId : userToCall;
         setCallEnded(true);
@@ -382,7 +355,6 @@ export const useDirectCall = ({
         onEndCall?.();
     }, [isIncoming, callerId, userToCall, socketRef, cleanup, onEndCall]);
 
-    // ── Toggle mute ────────────────────────────────────────────────────────
     const toggleMute = useCallback(() => {
         const track = localStreamRef.current?.getAudioTracks()[0];
         if (track) {
@@ -391,7 +363,6 @@ export const useDirectCall = ({
         }
     }, []);
 
-    // ── Toggle video ───────────────────────────────────────────────────────
     const toggleVideo = useCallback(() => {
         const track = localStreamRef.current?.getVideoTracks()[0];
         if (track) {
@@ -400,10 +371,8 @@ export const useDirectCall = ({
         }
     }, []);
 
-    // ── Screen sharing ─────────────────────────────────────────────────────
     const toggleScreenShare = useCallback(async () => {
         if (isScreenSharing) {
-            // Stop screen share, restore camera
             screenStreamRef.current?.getTracks().forEach(t => t.stop());
             screenStreamRef.current = null;
 
@@ -428,7 +397,6 @@ export const useDirectCall = ({
                 }
 
                 screenTrack.onended = () => {
-                    // User clicked "Stop sharing" in browser UI
                     const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
                     if (cameraTrack && peerRef.current) {
                         const sender = peerRef.current
